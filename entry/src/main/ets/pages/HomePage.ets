@@ -1,0 +1,273 @@
+import { ColorConst, DefaultConst, FontSizeConst, RadiusConst, RouteConst, SpacingConst } from '../common/constants/CommonConstants'
+import { StudyStats } from '../models/Word'
+import { WordService } from '../services/WordService'
+import { RouterUtil } from '../common/router/RouterUtil'
+import { LoadingView } from '../components/LoadingView'
+import { ProgressBar } from '../components/ProgressBar'
+
+/**
+ * 首页 - 展示Logo、今日学习数量、学习进度、开始学习按钮
+ */
+@Entry
+@Component
+struct HomePage {
+  @State isLoading: boolean = true
+  @State stats: StudyStats = {
+    todayCount: 0,
+    totalCount: 0,
+    todayGoal: DefaultConst.DAILY_GOAL,
+    correctRate: 0,
+    masteredCount: 0
+  }
+
+  aboutToAppear(): void {
+    this.loadData()
+  }
+
+  private loadData(): void {
+    this.isLoading = true
+    WordService.getStudyStats().then((data: StudyStats) => {
+      this.stats = data
+      this.isLoading = false
+    }).catch(() => {
+      this.isLoading = false
+    })
+  }
+
+  build() {
+    Column() {
+      if (this.isLoading) {
+        LoadingView({ tip: '加载中...' })
+      } else {
+        this.MainContent()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(ColorConst.BG_DEFAULT)
+  }
+
+  @Builder
+  MainContent() {
+    Scroll() {
+      Column() {
+        // Logo 区域
+        this.LogoSection()
+
+        // 今日学习统计卡片
+        this.StatsCard()
+
+        // 学习进度卡片
+        this.ProgressCard()
+
+        // 开始学习按钮
+        this.StartButton()
+
+        // 底部导航入口
+        this.NavEntries()
+      }
+      .width('100%')
+      .padding({ left: SpacingConst.MD, right: SpacingConst.MD })
+    }
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+  }
+
+  /** Logo 与标题区 */
+  @Builder
+  LogoSection() {
+    Column() {
+      // Logo 图标
+      Text('V')
+        .fontSize(FontSizeConst.LOGO)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .width(72)
+        .height(72)
+        .textAlign(TextAlign.Center)
+        .borderRadius(RadiusConst.LG)
+        .backgroundColor(ColorConst.PRIMARY)
+        .shadow({
+          radius: 12,
+          color: '#334CAF50',
+          offsetY: 4
+        })
+        .margin({ top: SpacingConst.XXL })
+
+      Text('VocaBill 背单词')
+        .fontSize(FontSizeConst.HEADLINE)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(ColorConst.TEXT_PRIMARY)
+        .margin({ top: SpacingConst.MD })
+
+      Text('每天进步一点点')
+        .fontSize(FontSizeConst.BODY)
+        .fontColor(ColorConst.TEXT_SECONDARY)
+        .margin({ top: SpacingConst.XS })
+    }
+    .alignItems(HorizontalAlign.Center)
+    .width('100%')
+  }
+
+  /** 今日统计卡片 */
+  @Builder
+  StatsCard() {
+    Row() {
+      // 今日已学
+      this.StatItem(this.stats.todayCount.toString(), '今日已学')
+      // 分割线
+      this.StatDivider()
+      // 累计学习
+      this.StatItem(this.stats.totalCount.toString(), '累计学习')
+      // 分割线
+      this.StatDivider()
+      // 正确率
+      this.StatItem(`${this.stats.correctRate}%`, '正确率')
+    }
+    .width('100%')
+    .padding({ top: SpacingConst.LG, bottom: SpacingConst.LG })
+    .backgroundColor(ColorConst.BG_CARD)
+    .borderRadius(RadiusConst.LG)
+    .shadow({
+      radius: 6,
+      color: '#1A000000',
+      offsetY: 2
+    })
+    .justifyContent(FlexAlign.SpaceEvenly)
+    .margin({ top: SpacingConst.XL })
+  }
+
+  @Builder
+  StatItem(value: string, label: string) {
+    Column() {
+      Text(value)
+        .fontSize(FontSizeConst.HEADLINE)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(ColorConst.PRIMARY)
+
+      Text(label)
+        .fontSize(FontSizeConst.CAPTION)
+        .fontColor(ColorConst.TEXT_SECONDARY)
+        .margin({ top: SpacingConst.XS })
+    }
+    .alignItems(HorizontalAlign.Center)
+    .layoutWeight(1)
+  }
+
+  @Builder
+  StatDivider() {
+    Divider()
+      .vertical(true)
+      .strokeWidth(1)
+      .color(ColorConst.DIVIDER)
+      .height(36)
+  }
+
+  /** 进度卡片 */
+  @Builder
+  ProgressCard() {
+    Column() {
+      Row() {
+        Text('今日学习进度')
+          .fontSize(FontSizeConst.SUBTITLE)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(ColorConst.TEXT_PRIMARY)
+
+        Blank()
+
+        Text(`${this.stats.masteredCount} 词已掌握`)
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.PRIMARY)
+      }
+      .width('100%')
+
+      ProgressBar({
+        current: this.stats.todayCount,
+        total: this.stats.todayGoal,
+        showText: true
+      }).margin({ top: SpacingConst.MD })
+    }
+    .width('100%')
+    .padding(SpacingConst.LG)
+    .backgroundColor(ColorConst.BG_CARD)
+    .borderRadius(RadiusConst.LG)
+    .shadow({
+      radius: 6,
+      color: '#1A000000',
+      offsetY: 2
+    })
+    .margin({ top: SpacingConst.MD })
+  }
+
+  /** 开始学习按钮 */
+  @Builder
+  StartButton() {
+    Button() {
+      Row() {
+        Text('开始学习')
+          .fontSize(FontSizeConst.HEADLINE)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+
+        Text(' →')
+          .fontSize(FontSizeConst.TITLE)
+          .fontColor(Color.White)
+      }
+      .justifyContent(FlexAlign.Center)
+    }
+    .width('100%')
+    .height(56)
+    .backgroundColor(ColorConst.PRIMARY)
+    .borderRadius(RadiusConst.XL)
+    .shadow({
+      radius: 12,
+      color: '#334CAF50',
+      offsetY: 6
+    })
+    .margin({ top: SpacingConst.XXL })
+    .onClick(() => {
+      RouterUtil.toReview()
+    })
+  }
+
+  /** 底部导航入口 */
+  @Builder
+  NavEntries() {
+    Row() {
+      // 统计入口
+      Column() {
+        Text('📊')
+          .fontSize(24)
+        Text('学习统计')
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.TEXT_SECONDARY)
+          .margin({ top: SpacingConst.XS })
+      }
+      .alignItems(HorizontalAlign.Center)
+      .padding({ left: SpacingConst.LG, right: SpacingConst.LG, top: SpacingConst.SM, bottom: SpacingConst.SM })
+      .borderRadius(RadiusConst.MD)
+      .onClick(() => {
+        RouterUtil.toStats()
+      })
+
+      // 设置入口
+      Column() {
+        Text('⚙')
+          .fontSize(24)
+        Text('设置')
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.TEXT_SECONDARY)
+          .margin({ top: SpacingConst.XS })
+      }
+      .alignItems(HorizontalAlign.Center)
+      .padding({ left: SpacingConst.LG, right: SpacingConst.LG, top: SpacingConst.SM, bottom: SpacingConst.SM })
+      .borderRadius(RadiusConst.MD)
+      .onClick(() => {
+        RouterUtil.toSettings()
+      })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceAround)
+    .margin({ top: SpacingConst.XXL, bottom: SpacingConst.XXL })
+  }
+}
