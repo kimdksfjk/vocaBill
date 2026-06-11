@@ -6,19 +6,7 @@ import { ReviewRepository, NewReviewRecord } from './database/ReviewRepository';
 import { Scheduler } from './scheduler/Scheduler';
 import { getTodayStart, formatDate } from '../utils/TimeUtil';
 
-/** 首次使用时的种子词库 */
-const SEED_WORDS: Word[] = [
-  { id: 0, word: 'abandon', meaning: 'v. 放弃；抛弃', familiarity: 0 },
-  { id: 0, word: 'brilliant', meaning: 'adj. 杰出的；明亮的', familiarity: 0 },
-  { id: 0, word: 'curious', meaning: 'adj. 好奇的；奇特的', familiarity: 0 },
-  { id: 0, word: 'demonstrate', meaning: 'v. 证明；演示', familiarity: 0 },
-  { id: 0, word: 'enthusiasm', meaning: 'n. 热情；热心', familiarity: 0 },
-  { id: 0, word: 'flexible', meaning: 'adj. 灵活的；易弯曲的', familiarity: 0 },
-  { id: 0, word: 'generous', meaning: 'adj. 慷慨的；大方的', familiarity: 0 },
-  { id: 0, word: 'hesitate', meaning: 'v. 犹豫；迟疑', familiarity: 0 },
-  { id: 0, word: 'illustrate', meaning: 'v. 阐明；举例说明', familiarity: 0 },
-  { id: 0, word: 'journey', meaning: 'n. 旅程；旅行', familiarity: 0 },
-];
+import { WordSeeder } from './WordSeeder';
 
 /**
  * 数据服务 — 前端UI与成员B数据库层的桥接
@@ -39,7 +27,13 @@ export class WordService {
     try {
       const count = await WordService.wordRepo.getWordCount();
       if (count === 0) {
-        await WordService.wordRepo.batchInsert(SEED_WORDS);
+        const context = DatabaseManager.getInstance().getContext();
+        if (context) {
+          const firstBatch = await WordSeeder.loadNextBatch(context, WordSeeder.BATCH_SIZE);
+          if (firstBatch.length > 0) {
+            await WordService.wordRepo.batchInsert(firstBatch);
+          }
+        }
       }
     } catch (err) {
       // 忽略，实际调用时再处理
@@ -51,11 +45,25 @@ export class WordService {
 
   static async getTodayWords(): Promise<Word[]> {
     await WordService.ensureSeeded();
-    const allWords = await WordService.wordRepo.getAllWords();
-    // 过滤掉今天已经学过的单词
     const todayStart = getTodayStart();
     const todayIds = await WordService.reviewRepo.getTodayWordIdList(todayStart);
-    return allWords.filter((w: Word) => todayIds.indexOf(w.id) === -1);
+    const allWords = await WordService.wordRepo.getAllWords();
+    const unstudied = allWords.filter((w: Word) => todayIds.indexOf(w.id) === -1);
+
+    if (unstudied.length < WordSeeder.BATCH_SIZE) {
+      const context = DatabaseManager.getInstance().getContext();
+      if (context) {
+        const newWords = await WordSeeder.loadNextBatch(context, WordSeeder.BATCH_SIZE);
+        if (newWords.length > 0) {
+          await WordService.wordRepo.batchInsert(newWords);
+          const freshWords = await WordService.wordRepo.getAllWords();
+          const freshUnstudied = freshWords.filter((w: Word) => todayIds.indexOf(w.id) === -1);
+          return freshUnstudied.slice(0, WordSeeder.BATCH_SIZE);
+        }
+      }
+    }
+
+    return unstudied.slice(0, WordSeeder.BATCH_SIZE);
   }
 
   static async getWordDetail(wordId: number): Promise<Word | undefined> {
@@ -218,6 +226,7 @@ export class WordService {
       await store.executeSql('DELETE FROM user_progress');
       await store.executeSql('DELETE FROM words');
       WordService.isSeeded = false;
+      WordSeeder.reset();
       await WordService.ensureSeeded();
       return true;
     } catch (err) {

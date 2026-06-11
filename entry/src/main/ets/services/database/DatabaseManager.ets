@@ -49,6 +49,7 @@ export class DatabaseManager {
   private static instance: DatabaseManager | null = null;
   private rdbStore: relationalStore.RdbStore | null = null;
   private isInitialized: boolean = false;
+  private appContext: common.Context | null = null;
 
   private constructor() {
   }
@@ -66,6 +67,7 @@ export class DatabaseManager {
     }
     try {
       this.rdbStore = await relationalStore.getRdbStore(context, STORE_CONFIG);
+      this.appContext = context;
       await this.createTables();
       this.isInitialized = true;
       console.info('[DatabaseManager] 数据库初始化成功');
@@ -90,8 +92,13 @@ export class DatabaseManager {
     return this.rdbStore;
   }
 
+  getContext(): common.Context | null {
+    return this.appContext;
+  }
+
   async close(): Promise<void> {
     this.rdbStore = null;
+    this.appContext = null;
     this.isInitialized = false;
   }
 }
