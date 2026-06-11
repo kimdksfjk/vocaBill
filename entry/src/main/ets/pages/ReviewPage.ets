@@ -6,9 +6,10 @@ import { LoadingView } from '../components/LoadingView'
 import { WordCard } from '../components/WordCard'
 import { ReviewButtons } from '../components/ReviewButtons'
 import { ProgressBar } from '../components/ProgressBar'
+import promptAction from '@ohos.promptAction'
 
 /**
- * 核心复习页 - 显示当前单词、点击显示释义、认识/不认识按钮、自动切换下一词、进度显示
+ * 核心复习页 - 显示当前单词、复习按钮、跳过功能
  */
 @Entry
 @Component
@@ -18,18 +19,35 @@ struct ReviewPage {
   @State currentIndex: number = 0
   @State showMeaning: boolean = false
   @State isFinished: boolean = false
-  @State isEmpty: boolean = false      // 今日无待学单词
+  @State isEmpty: boolean = false
   @State correctCount: number = 0
+  @State skippedCount: number = 0
   @State currentWord: Word = {
     id: 0,
     word: '',
     meaning: '',
-    familiarity: 0
+    familiarity: 0,
+    nextReviewTime: 0,
+    usPhonetic: '',
+    ukPhonetic: '',
+    exampleSentence: ''
   }
   @State knownRecords: StudyRecord[] = []
+  private nextTimerId: number = -1
 
   aboutToAppear(): void {
     this.loadWords()
+  }
+
+  aboutToDisappear(): void {
+    this.clearNextTimer()
+  }
+
+  private clearNextTimer(): void {
+    if (this.nextTimerId !== -1) {
+      clearTimeout(this.nextTimerId)
+      this.nextTimerId = -1
+    }
   }
 
   private loadWords(): void {
@@ -40,7 +58,6 @@ struct ReviewPage {
         this.currentWord = words[0]
         this.currentIndex = 0
       } else {
-        // 今天所有单词都已学完
         this.isEmpty = true
       }
       this.isLoading = false
@@ -49,12 +66,10 @@ struct ReviewPage {
     })
   }
 
-  /** 点击显示释义 */
   private onToggleMeaning(): void {
     this.showMeaning = true
   }
 
-  /** 认识 */
   private onKnown(): void {
     this.knownRecords.push({
       wordId: this.currentWord.id,
@@ -65,7 +80,6 @@ struct ReviewPage {
     this.nextWord()
   }
 
-  /** 不认识 */
   private onUnknown(): void {
     this.knownRecords.push({
       wordId: this.currentWord.id,
@@ -75,33 +89,48 @@ struct ReviewPage {
     this.nextWord()
   }
 
-  /** 切换到下一个单词 */
+  /** 跳过当前单词（不记录结果，放到列表末尾） */
+  private onSkip(): void {
+    if (this.wordList.length <= 1) {
+      // 只有一个词，跳过等同于完成
+      this.isFinished = true
+      return
+    }
+    // 将当前单词移到列表末尾
+    const currentWord = this.wordList[this.currentIndex]
+    this.wordList.splice(this.currentIndex, 1)
+    this.wordList.push(currentWord)
+    this.skippedCount++
+    // 显示寓意重置
+    this.showMeaning = false
+    // 切换到下一个（索引不变，因为当前项被移除了）
+    this.currentWord = this.wordList[this.currentIndex]
+    promptAction.showToast({ message: '已跳过，稍后再学', duration: 1200 })
+  }
+
   private nextWord(): void {
+    this.clearNextTimer()
     const nextIndex = this.currentIndex + 1
 
     if (nextIndex >= this.wordList.length) {
-      // 全部学完 — 不在这里保存，留给 goHome() 统一保存
       this.isFinished = true
       return
     }
 
-    // 自动切换到下一个单词（带延迟，让用户看到反馈）
-    setTimeout(() => {
+    this.nextTimerId = setTimeout(() => {
       this.currentIndex = nextIndex
       this.currentWord = this.wordList[nextIndex]
       this.showMeaning = false
     }, DefaultConst.AUTO_NEXT_DELAY)
   }
 
-  /** 保存学习结果（返回 Promise，调用方必须 await） */
   private async saveResults(): Promise<void> {
     if (this.knownRecords.length > 0) {
       await WordService.recordBatchResults(this.knownRecords)
-      this.knownRecords = []  // 保存后清空，避免重复写入
+      this.knownRecords = []
     }
   }
 
-  /** 返回首页（会先等待保存完成，使用 replaceUrl 销毁旧页面强制刷新） */
   private async goHome(): Promise<void> {
     await this.saveResults()
     RouterUtil.replace(RouteConst.HOME)
@@ -124,14 +153,11 @@ struct ReviewPage {
     .backgroundColor(ColorConst.BG_DEFAULT)
   }
 
-  /** 复习中内容 */
   @Builder
   ReviewContent() {
     Column() {
-      // 顶部栏
       this.TopBar()
 
-      // 进度条
       ProgressBar({
         current: this.currentIndex,
         total: this.wordList.length,
@@ -140,7 +166,25 @@ struct ReviewPage {
         .padding({ left: SpacingConst.MD, right: SpacingConst.MD })
         .margin({ top: SpacingConst.SM })
 
-      // 单词卡片（居中占据主要空间）
+      // 复习标签（区分新词和复习词）
+      if (this.currentWord.nextReviewTime > 0) {
+        Text('🔄 复习')
+          .fontSize(12)
+          .fontColor(ColorConst.WARNING)
+          .padding({ top: SpacingConst.XS, bottom: SpacingConst.XS, left: SpacingConst.SM, right: SpacingConst.SM })
+          .backgroundColor('#FFF8E1')
+          .borderRadius(8)
+          .margin({ top: SpacingConst.SM })
+      } else {
+        Text('🆕 新词')
+          .fontSize(12)
+          .fontColor(ColorConst.SECONDARY)
+          .padding({ top: SpacingConst.XS, bottom: SpacingConst.XS, left: SpacingConst.SM, right: SpacingConst.SM })
+          .backgroundColor('#E3F2FD')
+          .borderRadius(8)
+          .margin({ top: SpacingConst.SM })
+      }
+
       Column() {
         WordCard({
           word: this.currentWord,
@@ -156,16 +200,14 @@ struct ReviewPage {
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
 
-      // 提示文字
       if (this.showMeaning) {
         Text('这个单词你认识吗？')
           .fontSize(FontSizeConst.BODY)
           .fontColor(ColorConst.TEXT_HINT)
           .textAlign(TextAlign.Center)
-          .margin({ bottom: SpacingConst.MD })
+          .margin({ bottom: SpacingConst.SM })
       }
 
-      // 复习按钮
       ReviewButtons({
         showMeaning: this.showMeaning,
         onKnown: (): void => {
@@ -175,12 +217,26 @@ struct ReviewPage {
           this.onUnknown()
         }
       })
-        .margin({ bottom: SpacingConst.XXL })
+        .margin({ bottom: SpacingConst.SM })
+
+      // 跳过按钮
+      if (this.showMeaning) {
+        Button() {
+          Text('跳过 →')
+            .fontSize(FontSizeConst.BODY)
+            .fontColor(ColorConst.TEXT_HINT)
+        }
+        .backgroundColor(Color.Transparent)
+        .height(40)
+        .onClick(() => {
+          this.onSkip()
+        })
+        .margin({ bottom: SpacingConst.LG })
+      }
     }
     .width('100%')
   }
 
-  /** 顶部栏 */
   @Builder
   TopBar() {
     Row() {
@@ -199,7 +255,6 @@ struct ReviewPage {
 
       Blank()
 
-      // 占位保持居中
       Text('✕')
         .fontSize(FontSizeConst.TITLE)
         .fontColor(Color.Transparent)
@@ -210,12 +265,10 @@ struct ReviewPage {
     .backgroundColor(ColorConst.BG_CARD)
   }
 
-  /** 完成页面 */
   @Builder
   FinishedView() {
     Column() {
       Column() {
-        // 完成图标
         Text('🎉')
           .fontSize(64)
 
@@ -230,11 +283,12 @@ struct ReviewPage {
           .fontColor(ColorConst.TEXT_SECONDARY)
           .margin({ top: SpacingConst.SM })
 
-        // 统计小结
         Row() {
           this.FinishStatItem('认识', this.correctCount, ColorConst.SECONDARY)
           this.FinishStatDivider()
-          this.FinishStatItem('不认识', this.wordList.length - this.correctCount, ColorConst.DANGER)
+          this.FinishStatItem('不认识', this.wordList.length - this.correctCount - this.skippedCount, ColorConst.DANGER)
+          this.FinishStatDivider()
+          this.FinishStatItem('跳过', this.skippedCount, ColorConst.WARNING)
         }
         .width('100%')
         .justifyContent(FlexAlign.SpaceEvenly)
@@ -245,7 +299,6 @@ struct ReviewPage {
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
 
-      // 返回按钮
       Button('返回首页')
         .width('80%')
         .height(52)
@@ -284,7 +337,6 @@ struct ReviewPage {
       .height(40)
   }
 
-  /** 今日无待学单词提示 */
   @Builder
   EmptyView() {
     Column() {

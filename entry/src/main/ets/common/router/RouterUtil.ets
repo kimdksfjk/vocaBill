@@ -39,6 +39,14 @@ export class RouterUtil {
     RouterUtil.push(RouteConst.SETTINGS, params)
   }
 
+  static toLogin(params?: Object): void {
+    RouterUtil.replace(RouteConst.LOGIN, params)
+  }
+
+  static toRegister(params?: Object): void {
+    RouterUtil.push(RouteConst.REGISTER, params)
+  }
+
   /** 获取路由传递的参数 */
   static getParams(): Object | undefined {
     return router.getParams()

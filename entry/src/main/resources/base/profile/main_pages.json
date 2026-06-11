@@ -4,6 +4,8 @@
     "pages/HomePage",
     "pages/ReviewPage",
     "pages/StatsPage",
-    "pages/SettingsPage"
+    "pages/SettingsPage",
+    "pages/LoginPage",
+    "pages/RegisterPage"
   ]
 }

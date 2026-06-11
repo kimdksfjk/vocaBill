@@ -1,42 +1,57 @@
 import { common } from '@kit.AbilityKit';
-import { Word } from '../models/Word';
+import { NewWord } from '../models/Word';
 import { uint8ArrayToString } from '../utils/JsonUtil';
 
 const CET6_FILES = ['words/CET6_1.json', 'words/CET6_2.json', 'words/CET6_3.json'];
+const CET4_FILES = ['words/CET4_1.json', 'words/CET4_2.json', 'words/CET4_3.json'];
 
-interface Cet6WordJson {
+interface CetJson {
   word: string;
-  translations: Cet6Translation[];
+  us: string;
+  uk: string;
+  translations: CetTranslation[];
+  phrases: CetPhrase[];
+  sentences: CetSentence[];
 }
 
-interface Cet6Translation {
+interface CetTranslation {
   translation: string;
   type: string;
 }
 
+interface CetPhrase {
+  phrase: string;
+  translation: string;
+}
+
+interface CetSentence {
+  sentence: string;
+  translation: string;
+}
+
 /**
- * 单词播种器 — 按顺序从 CET6 JSON 文件中逐批加载单词
- * 每次调用 loadNextBatch() 最多返回 BATCH_SIZE 个单词，
- * 内部按文件顺序缓存并推进位置，用完一个文件后自动加载下一个。
+ * 单词播种器 — 按顺序从 CET4+6 JSON 文件中逐批加载单词
  */
 export class WordSeeder {
-  private static queue: Word[] = [];
+  private static queue: NewWord[] = [];
   private static fileIndex: number = 0;
   private static allLoaded: boolean = false;
 
   static readonly BATCH_SIZE = 10;
 
-  /**
-   * 获取下一批单词（最多 count 个）
-   * 内存队列不足时自动从下一个 JSON 文件加载
-   */
-  static async loadNextBatch(context: common.Context, count: number): Promise<Word[]> {
+  /** 所有要加载的文件列表 */
+  private static get ALL_FILES(): string[] {
+    return [...CET4_FILES, ...CET6_FILES];
+  }
+
+  static async loadNextBatch(context: common.Context, count: number): Promise<NewWord[]> {
     if (WordSeeder.allLoaded) {
       return [];
     }
 
-    while (WordSeeder.queue.length < count && WordSeeder.fileIndex < CET6_FILES.length) {
-      await WordSeeder.loadFile(context, CET6_FILES[WordSeeder.fileIndex]);
+    const allFiles = WordSeeder.ALL_FILES;
+    while (WordSeeder.queue.length < count && WordSeeder.fileIndex < allFiles.length) {
+      await WordSeeder.loadFile(context, allFiles[WordSeeder.fileIndex]);
       WordSeeder.fileIndex++;
     }
 
@@ -53,34 +68,52 @@ export class WordSeeder {
     try {
       const rawData: Uint8Array = await context.resourceManager.getRawFileContent(fileName);
       const jsonStr = uint8ArrayToString(rawData);
-      const cet6Words: Cet6WordJson[] = JSON.parse(jsonStr);
+      const words: CetJson[] = JSON.parse(jsonStr);
 
-      for (const w of cet6Words) {
+      for (const w of words) {
+        // 构建释义：提取所有翻译
         let meaning = '';
         if (w.translations && w.translations.length > 0) {
-          meaning = `${w.translations[0].type}. ${w.translations[0].translation}`;
+          const parts: string[] = [];
+          for (const t of w.translations) {
+            parts.push(`${t.type}. ${t.translation}`);
+          }
+          meaning = parts.join('; ');
         }
+
+        // 构建音标
+        const usPhonetic = w.us || '';
+        const ukPhonetic = w.uk || '';
+
+        // 构建例句：取第一条例句
+        let exampleSentence = '';
+        if (w.sentences && w.sentences.length > 0) {
+          const s = w.sentences[0];
+          exampleSentence = `${s.sentence}\n${s.translation}`;
+        }
+
         WordSeeder.queue.push({
-          id: 0,      // 占位；DB 批量插入后自增
           word: w.word,
           meaning: meaning,
-          familiarity: 0
+          familiarity: 0,
+          nextReviewTime: 0,
+          usPhonetic: usPhonetic,
+          ukPhonetic: ukPhonetic,
+          exampleSentence: exampleSentence
         });
       }
-      console.info(`[WordSeeder] 加载完成: ${fileName}, ${cet6Words.length} 个单词`);
+      console.info(`[WordSeeder] 加载完成: ${fileName}, ${words.length} 个单词`);
     } catch (err) {
       console.error(`[WordSeeder] 加载失败 ${fileName}: ${JSON.stringify(err)}`);
     }
   }
 
-  /** 重置状态（清空所有数据时调用） */
   static reset(): void {
     WordSeeder.queue = [];
     WordSeeder.fileIndex = 0;
     WordSeeder.allLoaded = false;
   }
 
-  /** 是否还有单词可加载 */
   static hasMore(): boolean {
     return !WordSeeder.allLoaded || WordSeeder.queue.length > 0;
   }

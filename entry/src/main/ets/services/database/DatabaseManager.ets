@@ -16,7 +16,11 @@ const CREATE_TABLE_WORDS = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     word TEXT NOT NULL,
     meaning TEXT NOT NULL,
-    familiarity INTEGER DEFAULT 0
+    familiarity INTEGER DEFAULT 0,
+    nextReviewTime INTEGER DEFAULT 0,
+    usPhonetic TEXT DEFAULT '',
+    ukPhonetic TEXT DEFAULT '',
+    exampleSentence TEXT DEFAULT ''
   )
 `;
 
@@ -38,6 +42,32 @@ const CREATE_TABLE_USER_PROGRESS = `
     studiedCount INTEGER DEFAULT 0,
     targetCount INTEGER DEFAULT 20,
     accuracy INTEGER DEFAULT 0
+  )
+`;
+
+/** 建表SQL — 用户账户表 */
+const CREATE_TABLE_USERS = `
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    passwordHash TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+  )
+`;
+
+/** 建表SQL — 当前登录用户表（只存一条记录） */
+const CREATE_TABLE_CURRENT_USER = `
+  CREATE TABLE IF NOT EXISTS current_user (
+    id INTEGER PRIMARY KEY,
+    userId INTEGER NOT NULL
+  )
+`;
+
+/** 建表SQL — 用户设置表（键值对存储） */
+const CREATE_TABLE_SETTINGS = `
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
   )
 `;
 
@@ -85,6 +115,9 @@ export class DatabaseManager {
     await this.rdbStore.executeSql(CREATE_TABLE_WORDS);
     await this.rdbStore.executeSql(CREATE_TABLE_REVIEW_RECORD);
     await this.rdbStore.executeSql(CREATE_TABLE_USER_PROGRESS);
+    await this.rdbStore.executeSql(CREATE_TABLE_USERS);
+    await this.rdbStore.executeSql(CREATE_TABLE_CURRENT_USER);
+    await this.rdbStore.executeSql(CREATE_TABLE_SETTINGS);
     console.info('[DatabaseManager] 数据表创建完成');
   }
 

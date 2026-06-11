@@ -7,7 +7,10 @@ import { Word } from '../models/Word'
  */
 @Component
 export struct WordCard {
-  @Prop word: Word = { id: 0, word: '', meaning: '', familiarity: 0 }
+  @Prop word: Word = {
+    id: 0, word: '', meaning: '', familiarity: 0,
+    nextReviewTime: 0, usPhonetic: '', ukPhonetic: '', exampleSentence: ''
+  }
   @Link showMeaning: boolean
   @Prop cardIndex: number = 0        // 当前卡片索引
   onToggleMeaning?: () => void
@@ -26,7 +29,15 @@ export struct WordCard {
         .fontWeight(FontWeight.Bold)
         .fontColor(ColorConst.TEXT_PRIMARY)
         .textAlign(TextAlign.Center)
-        .margin({ bottom: SpacingConst.MD })
+        .margin({ bottom: SpacingConst.SM })
+
+      // 音标（优先显示用户偏好的音标）
+      if (this.word.usPhonetic || this.word.ukPhonetic) {
+        Text(`/${this.word.ukPhonetic || this.word.usPhonetic}/`)
+          .fontSize(FontSizeConst.BODY)
+          .fontColor(ColorConst.TEXT_HINT)
+          .margin({ bottom: SpacingConst.MD })
+      }
 
       // 分隔线
       if (!this.showMeaning) {
@@ -54,6 +65,24 @@ export struct WordCard {
               TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.EaseInOut })
                 .combine(TransitionEffect.translate({ y: 20 }).animation({ duration: 300 }))
             )
+
+          // 例句
+          if (this.word.exampleSentence) {
+            Divider()
+              .strokeWidth(0.5)
+              .color(ColorConst.DIVIDER)
+              .width('80%')
+              .margin({ top: SpacingConst.LG, bottom: SpacingConst.LG })
+
+            Text(this.word.exampleSentence)
+              .fontSize(FontSizeConst.CAPTION)
+              .fontColor(ColorConst.TEXT_HINT)
+              .textAlign(TextAlign.Center)
+              .lineHeight(20)
+              .transition(
+                TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.EaseInOut })
+              )
+          }
         }
       }
 

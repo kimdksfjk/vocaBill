@@ -1,8 +1,9 @@
 import { ColorConst, FontSizeConst, RadiusConst, RouteConst, SpacingConst } from '../common/constants/CommonConstants'
 import { RouterUtil } from '../common/router/RouterUtil'
+import { UserService } from '../services/UserService'
 
 /**
- * 入口页 - 启动后显示Logo并自动跳转到首页
+ * 入口页 - 启动后显示Logo，根据登录状态跳转
  */
 @Entry
 @Component
@@ -13,9 +14,19 @@ struct Index {
     // Logo渐显动画
     this.logoOpacity = 1
 
-    // 延迟跳转到首页
-    setTimeout(() => {
-      RouterUtil.replace(RouteConst.HOME)
+    // 检查登录状态后跳转
+    setTimeout(async () => {
+      try {
+        const isLoggedIn = await UserService.isLoggedIn()
+        if (isLoggedIn) {
+          RouterUtil.replace(RouteConst.HOME)
+        } else {
+          RouterUtil.replace(RouteConst.LOGIN)
+        }
+      } catch (err) {
+        // 出错时默认跳转到登录页
+        RouterUtil.replace(RouteConst.LOGIN)
+      }
     }, 1200)
   }
 

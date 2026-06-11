@@ -16,6 +16,10 @@ export class ColorConst {
   static readonly TEXT_SECONDARY = '#757575'
   static readonly TEXT_HINT = '#BDBDBD'
   static readonly DIVIDER = '#EEEEEE'
+  static readonly GREEN_BG = '#E8F5E9'
+  static readonly RED_BG = '#FFEBEE'
+  static readonly BLUE_BG = '#E3F2FD'
+  static readonly YELLOW_BG = '#FFF8E1'
 }
 
 /** 间距 */
@@ -55,6 +59,8 @@ export class RouteConst {
   static readonly REVIEW = 'pages/ReviewPage'
   static readonly STATS = 'pages/StatsPage'
   static readonly SETTINGS = 'pages/SettingsPage'
+  static readonly LOGIN = 'pages/LoginPage'
+  static readonly REGISTER = 'pages/RegisterPage'
 }
 
 /** 默认设置 */

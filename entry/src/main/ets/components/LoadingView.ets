@@ -2,21 +2,32 @@ import { ColorConst, FontSizeConst, RadiusConst, SpacingConst } from '../common/
 
 /**
  * 加载视图组件 - 显示加载动画与提示文字
- * 用于数据加载中的过渡状态
  */
 @Component
 export struct LoadingView {
   @Prop tip: string = '加载中...'
   @State private rotateAngle: number = 0
+  private intervalId: number = -1
 
   aboutToAppear(): void {
     this.startRotation()
   }
 
+  aboutToDisappear(): void {
+    this.stopRotation()
+  }
+
   private startRotation(): void {
-    setInterval(() => {
+    this.intervalId = setInterval(() => {
       this.rotateAngle = (this.rotateAngle + 30) % 360
     }, 80)
+  }
+
+  private stopRotation(): void {
+    if (this.intervalId !== -1) {
+      clearInterval(this.intervalId)
+      this.intervalId = -1
+    }
   }
 
   build() {

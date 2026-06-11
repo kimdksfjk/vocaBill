@@ -1,7 +1,9 @@
 import { relationalStore } from '@kit.ArkData';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { ReviewRecord } from '../../models/ReviewRecord';
+import { DayStats } from '../../models/Word';
 import { DatabaseManager } from './DatabaseManager';
+import { formatDate } from '../../utils/TimeUtil';
 
 const TABLE_REVIEW_RECORD = 'review_record';
 
@@ -110,7 +112,6 @@ export class ReviewRepository {
       const predicates = new relationalStore.RdbPredicates(TABLE_REVIEW_RECORD);
       predicates.greaterThanOrEqualTo('reviewTime', todayStart);
       const resultSet = await store.query(predicates, ['wordId', 'isKnown']);
-      // 用两个数组分别记录已经见过的 wordId 和是否认识过
       const seenIds: number[] = [];
       const knownFlags: boolean[] = [];
       while (resultSet.goToNextRow()) {
@@ -121,7 +122,6 @@ export class ReviewRepository {
           seenIds.push(wordId);
           knownFlags.push(isKnown);
         } else {
-          // 任一一次认识就算认识
           if (isKnown && !knownFlags[idx]) {
             knownFlags[idx] = true;
           }
@@ -155,6 +155,62 @@ export class ReviewRepository {
     } catch (err) {
       const error = err as BusinessError;
       throw new Error(`获取总量失败: ${error.message}`);
+    }
+  }
+
+  /** 获取最近7天的学习统计 */
+  async getWeeklyStats(): Promise<DayStats[]> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) {
+      return [];
+    }
+    try {
+      // 最近7天
+      const today = new Date();
+      const result: DayStats[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+        const dateStr = formatDate(d.getTime());
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+        // 查询当天学习记录
+        const predicates = new relationalStore.RdbPredicates(TABLE_REVIEW_RECORD);
+        predicates.greaterThanOrEqualTo('reviewTime', dayStart);
+        predicates.lessThan('reviewTime', dayEnd);
+        const resultSet = await store.query(predicates, ['wordId', 'isKnown']);
+
+        const seenIds: number[] = [];
+        const knownFlags: boolean[] = [];
+        while (resultSet.goToNextRow()) {
+          const wordId = resultSet.getLong(resultSet.getColumnIndex('wordId'));
+          const isKnown = resultSet.getLong(resultSet.getColumnIndex('isKnown')) === 1;
+          const idx = seenIds.indexOf(wordId);
+          if (idx === -1) {
+            seenIds.push(wordId);
+            knownFlags.push(isKnown);
+          } else {
+            if (isKnown && !knownFlags[idx]) {
+              knownFlags[idx] = true;
+            }
+          }
+        }
+        resultSet.close();
+
+        let correctCount = 0;
+        for (let k = 0; k < knownFlags.length; k++) {
+          if (knownFlags[k]) {
+            correctCount++;
+          }
+        }
+        const count = seenIds.length;
+        const correctRate = count > 0 ? Math.round((correctCount / count) * 100) : 0;
+        result.push({ date: dateStr, count: count, correctRate: correctRate });
+      }
+      return result;
+    } catch (err) {
+      console.error(`[ReviewRepository] 获取周统计失败: ${JSON.stringify(err)}`);
+      return [];
     }
   }
 }
