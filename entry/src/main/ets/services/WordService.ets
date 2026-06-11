@@ -1,5 +1,5 @@
 import { relationalStore } from '@kit.ArkData';
-import { Word, StudyStats, StudyRecord } from '../models/Word';
+import { Word, StudyStats, StudyRecord, StudiedWordItem } from '../models/Word';
 import { DatabaseManager } from './database/DatabaseManager';
 import { WordRepository } from './database/WordRepository';
 import { ReviewRepository, NewReviewRecord } from './database/ReviewRepository';
@@ -51,12 +51,37 @@ export class WordService {
 
   static async getTodayWords(): Promise<Word[]> {
     await WordService.ensureSeeded();
-    return await WordService.wordRepo.getAllWords();
+    const allWords = await WordService.wordRepo.getAllWords();
+    // 过滤掉今天已经学过的单词
+    const todayStart = getTodayStart();
+    const todayIds = await WordService.reviewRepo.getTodayWordIdList(todayStart);
+    return allWords.filter((w: Word) => todayIds.indexOf(w.id) === -1);
   }
 
   static async getWordDetail(wordId: number): Promise<Word | undefined> {
     const word = await WordService.wordRepo.getWordById(wordId);
     return word ?? undefined;
+  }
+
+  /** 获取今日已学单词列表（含认识/不认识状态） */
+  static async getTodayStudiedWords(): Promise<StudiedWordItem[]> {
+    const todayStart = getTodayStart();
+    const knownMap = await WordService.reviewRepo.getTodayWordKnownMap(todayStart);
+    const allWords = await WordService.wordRepo.getAllWords();
+    const result: StudiedWordItem[] = [];
+    // 只收集今日已学的单词
+    knownMap.forEach((known: boolean, wordId: number) => {
+      const word = allWords.find((w: Word) => w.id === wordId);
+      if (word) {
+        result.push({
+          id: word.id,
+          word: word.word,
+          meaning: word.meaning,
+          known: known
+        });
+      }
+    });
+    return result;
   }
 
   // ==================== 学习记录接口 ====================
@@ -96,7 +121,8 @@ export class WordService {
   static async getStudyStats(): Promise<StudyStats> {
     try {
       const todayStart = getTodayStart();
-      const todayStats = await WordService.reviewRepo.getTodayStats(todayStart);
+      // 使用去重统计：同一单词学多次只算一次
+      const todayStats = await WordService.reviewRepo.getTodayUniqueStats(todayStart);
       const totalCount = await WordService.reviewRepo.getTotalCount();
       const dailyGoal = await WordService.getDailyGoal();
 

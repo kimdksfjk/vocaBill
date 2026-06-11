@@ -164,6 +164,9 @@ struct HomePage {
     }
     .alignItems(HorizontalAlign.Center)
     .layoutWeight(1)
+    .onClick(() => {
+      RouterUtil.toStats()
+    })
   }
 
   @Builder

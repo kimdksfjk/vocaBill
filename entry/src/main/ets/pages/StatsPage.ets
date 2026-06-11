@@ -1,5 +1,5 @@
 import { ColorConst, DefaultConst, FontSizeConst, RadiusConst, SpacingConst } from '../common/constants/CommonConstants'
-import { StudyStats } from '../models/Word'
+import { StudyStats, StudiedWordItem } from '../models/Word'
 import { WordService } from '../services/WordService'
 import { RouterUtil } from '../common/router/RouterUtil'
 import { LoadingView } from '../components/LoadingView'
@@ -19,6 +19,7 @@ struct StatsPage {
     correctRate: 0,
     masteredCount: 0
   }
+  @State studiedWords: StudiedWordItem[] = []
 
   aboutToAppear(): void {
     this.loadData()
@@ -31,12 +32,16 @@ struct StatsPage {
   private async reloadStats(): Promise<void> {
     const data = await WordService.getStudyStats()
     this.stats = data
+    const words = await WordService.getTodayStudiedWords()
+    this.studiedWords = words
   }
 
   private async loadData(): Promise<void> {
     this.isLoading = true
     const data = await WordService.getStudyStats()
     this.stats = data
+    const words = await WordService.getTodayStudiedWords()
+    this.studiedWords = words
     this.isLoading = false
   }
 
@@ -70,6 +75,9 @@ struct StatsPage {
 
           // 详细统计卡片
           this.DetailStatsCard()
+
+          // 今日已学单词列表
+          this.TodayWordsList()
         }
         .width('100%')
         .padding({
@@ -246,5 +254,80 @@ struct StatsPage {
       .strokeWidth(0.5)
       .color(ColorConst.DIVIDER)
       .width('100%')
+  }
+
+  /** 今日已学单词列表 */
+  @Builder
+  TodayWordsList() {
+    Column() {
+      Text('今日已学单词')
+        .fontSize(FontSizeConst.TITLE)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(ColorConst.TEXT_PRIMARY)
+        .margin({ bottom: SpacingConst.MD })
+
+      if (this.studiedWords.length === 0) {
+        Text('暂无学习记录')
+          .fontSize(FontSizeConst.BODY)
+          .fontColor(ColorConst.TEXT_HINT)
+          .padding({ top: SpacingConst.SM, bottom: SpacingConst.SM })
+      }
+
+      ForEach(this.studiedWords, (item: StudiedWordItem, index: number) => {
+        this.WordRow(item, index)
+      }, (item: StudiedWordItem) => item.id.toString())
+    }
+    .width('100%')
+    .padding(SpacingConst.LG)
+    .backgroundColor(ColorConst.BG_CARD)
+    .borderRadius(RadiusConst.LG)
+    .margin({ top: SpacingConst.MD })
+  }
+
+  @Builder
+  WordRow(item: StudiedWordItem, index: number) {
+    Column() {
+      Row() {
+        // 序号
+        Text(`${index + 1}`)
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.TEXT_HINT)
+          .width(24)
+
+        // 单词
+        Text(item.word)
+          .fontSize(FontSizeConst.BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(ColorConst.TEXT_PRIMARY)
+          .layoutWeight(1)
+
+        // 释义
+        Text(item.meaning)
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.TEXT_SECONDARY)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('40%')
+          .textAlign(TextAlign.End)
+
+        // 状态标签
+        Text(item.known ? '认识' : '不认识')
+          .fontSize(10)
+          .fontColor(item.known ? ColorConst.PRIMARY : ColorConst.DANGER)
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+          .backgroundColor(item.known ? '#E8F5E9' : '#FFEBEE')
+          .borderRadius(8)
+          .margin({ left: SpacingConst.SM })
+      }
+      .width('100%')
+      .padding({ top: SpacingConst.SM, bottom: SpacingConst.SM })
+
+      if (index < this.studiedWords.length - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color(ColorConst.DIVIDER)
+      }
+    }
+    .width('100%')
   }
 }

@@ -18,6 +18,7 @@ struct ReviewPage {
   @State currentIndex: number = 0
   @State showMeaning: boolean = false
   @State isFinished: boolean = false
+  @State isEmpty: boolean = false      // 今日无待学单词
   @State correctCount: number = 0
   @State currentWord: Word = {
     id: 0,
@@ -38,6 +39,9 @@ struct ReviewPage {
       if (words.length > 0) {
         this.currentWord = words[0]
         this.currentIndex = 0
+      } else {
+        // 今天所有单词都已学完
+        this.isEmpty = true
       }
       this.isLoading = false
     }).catch(() => {
@@ -107,6 +111,8 @@ struct ReviewPage {
     Column() {
       if (this.isLoading) {
         LoadingView({ tip: '正在准备单词...' })
+      } else if (this.isEmpty) {
+        this.EmptyView()
       } else if (this.isFinished) {
         this.FinishedView()
       } else {
@@ -276,5 +282,37 @@ struct ReviewPage {
       .strokeWidth(1)
       .color(ColorConst.DIVIDER)
       .height(40)
+  }
+
+  /** 今日无待学单词提示 */
+  @Builder
+  EmptyView() {
+    Column() {
+      Text('今日学习已完成')
+        .fontSize(FontSizeConst.HEADLINE)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(ColorConst.TEXT_PRIMARY)
+        .margin({ bottom: SpacingConst.SM })
+
+      Text('所有单词都已学过，明天再来吧')
+        .fontSize(FontSizeConst.BODY)
+        .fontColor(ColorConst.TEXT_SECONDARY)
+
+      Button('返回首页')
+        .fontSize(FontSizeConst.BODY)
+        .fontColor(Color.White)
+        .backgroundColor(ColorConst.PRIMARY)
+        .borderRadius(RadiusConst.XL)
+        .height(48)
+        .padding({ left: SpacingConst.XXL, right: SpacingConst.XXL })
+        .margin({ top: SpacingConst.XXL })
+        .onClick(() => {
+          RouterUtil.back()
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
   }
 }
