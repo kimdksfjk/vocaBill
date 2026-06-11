@@ -10,6 +10,6 @@ export interface UserProgress {
   studiedCount: number;
   /** 今日目标单词数 */
   targetCount: number;
-  /** 今日正确率（0-1） */
+  /** 今日正确率（0-1之间的小数） */
   accuracy: number;
 }

@@ -19,9 +19,11 @@ struct SettingsPage {
   @State showLogoutDialog: boolean = false
   @State showReminderDialog: boolean = false
   @State showPronunciationDialog: boolean = false
+  @State showWordBankDialog: boolean = false
   @State currentUser: User | null = null
   @State reminderEnabled: boolean = false
   @State pronunciationPref: string = 'british'
+  @State wordBank: string = 'cet4_cet6'
   @State versionName: string = '1.0.0'
 
   aboutToAppear(): void {
@@ -38,6 +40,8 @@ struct SettingsPage {
       this.reminderEnabled = reminderEnabled
       const pronPref = await WordService.getPronunciationPref()
       this.pronunciationPref = pronPref
+      const bank = await WordService.getWordBank()
+      this.wordBank = bank
     } catch (err) {
       // 失败时保留现有数据
     }
@@ -53,6 +57,8 @@ struct SettingsPage {
     this.reminderEnabled = reminderEnabled
     const pronPref = await WordService.getPronunciationPref()
     this.pronunciationPref = pronPref
+    const bank = await WordService.getWordBank()
+    this.wordBank = bank
     // 动态获取版本号
     try {
       const bundleInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT)
@@ -74,12 +80,14 @@ struct SettingsPage {
   }
 
   private async onResetData(): Promise<void> {
+    this.showResetDialog = false
+    this.isLoading = true
     const ok = await WordService.resetAllData()
     if (ok) {
-      this.showResetDialog = false
       const goal = await WordService.getDailyGoal()
       this.dailyGoal = goal
     }
+    this.isLoading = false
   }
 
   build() {
@@ -117,6 +125,12 @@ struct SettingsPage {
       if (this.showPronunciationDialog) {
         this.PronunciationDialogMask()
         this.PronunciationDialogPanel()
+      }
+
+      // 词库选择弹窗
+      if (this.showWordBankDialog) {
+        this.WordBankDialogMask()
+        this.WordBankDialogPanel()
       }
     }
     .width('100%')
@@ -328,6 +342,27 @@ struct SettingsPage {
         .padding({ left: SpacingConst.MD, right: SpacingConst.MD, top: SpacingConst.MD, bottom: SpacingConst.MD })
         .onClick(() => {
           this.showPronunciationDialog = true
+        })
+
+        Divider().strokeWidth(0.5).color(ColorConst.DIVIDER).margin({ left: SpacingConst.MD })
+
+        Row() {
+          Text('词库设置')
+            .fontSize(FontSizeConst.BODY)
+            .fontColor(ColorConst.TEXT_PRIMARY)
+          Blank()
+          Text(this.getWordBankLabel())
+            .fontSize(FontSizeConst.BODY)
+            .fontColor(ColorConst.TEXT_SECONDARY)
+            .margin({ right: SpacingConst.XS })
+          Text('>')
+            .fontSize(FontSizeConst.BODY)
+            .fontColor(ColorConst.TEXT_HINT)
+        }
+        .width('100%')
+        .padding({ left: SpacingConst.MD, right: SpacingConst.MD, top: SpacingConst.MD, bottom: SpacingConst.MD })
+        .onClick(() => {
+          this.showWordBankDialog = true
         })
       }
       .width('100%')
@@ -702,5 +737,133 @@ struct SettingsPage {
     .padding(SpacingConst.LG)
     .backgroundColor(ColorConst.BG_CARD)
     .borderRadius(RadiusConst.LG)
+  }
+
+  /** 获取词库显示标签 */
+  private getWordBankLabel(): string {
+    if (this.wordBank === 'cet4') {
+      return 'CET-4';
+    }
+    if (this.wordBank === 'cet6') {
+      return 'CET-6';
+    }
+    return 'CET-4 + CET-6';
+  }
+
+  /** 词库选择弹窗-遮罩 */
+  @Builder
+  WordBankDialogMask() {
+    Column()
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#80000000')
+      .onClick(() => {
+        this.showWordBankDialog = false
+      })
+  }
+
+  /** 词库选择弹窗-面板 */
+  @Builder
+  WordBankDialogPanel() {
+    Column() {
+      Text('词库设置')
+        .fontSize(FontSizeConst.TITLE)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(ColorConst.TEXT_PRIMARY)
+        .margin({ bottom: SpacingConst.SM })
+
+      Text('切换词库后将清空当前学习数据，确定切换吗？')
+        .fontSize(FontSizeConst.CAPTION)
+        .fontColor(ColorConst.TEXT_HINT)
+        .margin({ bottom: SpacingConst.LG })
+
+      Row() {
+        Text('CET-4')
+          .fontSize(FontSizeConst.BODY)
+          .fontColor(this.wordBank === 'cet4' ? ColorConst.PRIMARY : ColorConst.TEXT_PRIMARY)
+        Blank()
+        if (this.wordBank === 'cet4') {
+          Text('✓')
+            .fontSize(FontSizeConst.TITLE)
+            .fontColor(ColorConst.PRIMARY)
+        }
+      }
+      .width('100%')
+      .padding({ top: SpacingConst.MD, bottom: SpacingConst.MD })
+      .onClick(async () => {
+        await this.switchBank('cet4')
+      })
+
+      Divider().strokeWidth(0.5).color(ColorConst.DIVIDER)
+
+      Row() {
+        Text('CET-6')
+          .fontSize(FontSizeConst.BODY)
+          .fontColor(this.wordBank === 'cet6' ? ColorConst.PRIMARY : ColorConst.TEXT_PRIMARY)
+        Blank()
+        if (this.wordBank === 'cet6') {
+          Text('✓')
+            .fontSize(FontSizeConst.TITLE)
+            .fontColor(ColorConst.PRIMARY)
+        }
+      }
+      .width('100%')
+      .padding({ top: SpacingConst.MD, bottom: SpacingConst.MD })
+      .onClick(async () => {
+        await this.switchBank('cet6')
+      })
+
+      Divider().strokeWidth(0.5).color(ColorConst.DIVIDER)
+
+      Row() {
+        Text('CET-4 + CET-6')
+          .fontSize(FontSizeConst.BODY)
+          .fontColor(this.wordBank === 'cet4_cet6' ? ColorConst.PRIMARY : ColorConst.TEXT_PRIMARY)
+        Blank()
+        if (this.wordBank === 'cet4_cet6') {
+          Text('✓')
+            .fontSize(FontSizeConst.TITLE)
+            .fontColor(ColorConst.PRIMARY)
+        }
+      }
+      .width('100%')
+      .padding({ top: SpacingConst.MD, bottom: SpacingConst.MD })
+      .onClick(async () => {
+        await this.switchBank('cet4_cet6')
+      })
+
+      Row() {
+        Button('取消')
+          .fontSize(FontSizeConst.BODY)
+          .backgroundColor(ColorConst.BG_DEFAULT)
+          .fontColor(ColorConst.TEXT_PRIMARY)
+          .layoutWeight(1)
+          .height(44)
+          .borderRadius(RadiusConst.SM)
+          .onClick(() => {
+            this.showWordBankDialog = false
+          })
+      }
+      .width('100%')
+      .margin({ top: SpacingConst.LG })
+    }
+    .width('80%')
+    .padding(SpacingConst.LG)
+    .backgroundColor(ColorConst.BG_CARD)
+    .borderRadius(RadiusConst.LG)
+  }
+
+  private async switchBank(bank: string): Promise<void> {
+    this.showWordBankDialog = false
+    this.isLoading = true
+    await WordService.setWordBank(bank as 'cet4' | 'cet6' | 'cet4_cet6')
+    this.wordBank = bank
+    this.isLoading = false
+    const labels: Record<string, string> = {
+      'cet4': 'CET-4',
+      'cet6': 'CET-6',
+      'cet4_cet6': 'CET-4 + CET-6'
+    };
+    promptAction.showToast({ message: `已切换为 ${labels[bank] || bank}`, duration: 1500 })
   }
 }

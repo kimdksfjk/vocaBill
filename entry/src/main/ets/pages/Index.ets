@@ -1,9 +1,10 @@
 import { ColorConst, FontSizeConst, RadiusConst, RouteConst, SpacingConst } from '../common/constants/CommonConstants'
 import { RouterUtil } from '../common/router/RouterUtil'
 import { UserService } from '../services/UserService'
+import { WordService } from '../services/WordService'
 
 /**
- * 入口页 - 启动后显示Logo，根据登录状态跳转
+ * 入口页 - 启动后显示Logo，预加载词库，根据登录状态跳转
  */
 @Entry
 @Component
@@ -11,20 +12,25 @@ struct Index {
   @State logoOpacity: number = 0
 
   aboutToAppear(): void {
-    // Logo渐显动画
     this.logoOpacity = 1
+    this.bootstrap()
+  }
 
-    // 检查登录状态后跳转
-    setTimeout(async () => {
-      try {
-        const isLoggedIn = await UserService.isLoggedIn()
-        if (isLoggedIn) {
-          RouterUtil.replace(RouteConst.HOME)
-        } else {
-          RouterUtil.replace(RouteConst.LOGIN)
-        }
-      } catch (err) {
-        // 出错时默认跳转到登录页
+  private async bootstrap(): Promise<void> {
+    // 并行：检查登录 + 预加载词库
+    const isLoggedIn = await UserService.isLoggedIn().catch(() => false)
+    // 已登录则立即开始预加载词库
+    if (isLoggedIn) {
+      WordService.preloadFullBank().catch(() => {
+        // 预加载失败不阻塞跳转
+      })
+    }
+
+    // 延迟 1.2s 后跳转（保持动画效果）
+    setTimeout(() => {
+      if (isLoggedIn) {
+        RouterUtil.replace(RouteConst.HOME)
+      } else {
         RouterUtil.replace(RouteConst.LOGIN)
       }
     }, 1200)

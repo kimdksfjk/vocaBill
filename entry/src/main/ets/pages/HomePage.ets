@@ -25,7 +25,6 @@ struct HomePage {
   }
 
   async onPageShow(): Promise<void> {
-    // 每次从其他页面返回时重新拉取最新数据
     try {
       const data = await WordService.getStudyStats()
       this.stats = data
@@ -34,9 +33,14 @@ struct HomePage {
     }
   }
 
-  /** 首次加载，显示 loading */
   private async loadData(): Promise<void> {
     this.isLoading = true
+    // 预热词库（已加载则直接返回）
+    try {
+      await WordService.preloadFullBank()
+    } catch (err) {
+      // 词库加载失败不阻塞首页
+    }
     const data = await WordService.getStudyStats()
     this.stats = data
     this.isLoading = false

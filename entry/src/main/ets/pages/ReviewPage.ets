@@ -52,7 +52,9 @@ struct ReviewPage {
 
   private loadWords(): void {
     this.isLoading = true
-    WordService.getTodayWords().then((words: Word[]) => {
+    WordService.preloadFullBank().then(() => {
+      return WordService.getTodayWords()
+    }).then((words: Word[]) => {
       this.wordList = words
       if (words.length > 0) {
         this.currentWord = words[0]
@@ -61,7 +63,9 @@ struct ReviewPage {
         this.isEmpty = true
       }
       this.isLoading = false
-    }).catch(() => {
+    }).catch((err: Error) => {
+      console.error(`[ReviewPage] 加载单词失败: ${JSON.stringify(err)}`)
+      this.isEmpty = true
       this.isLoading = false
     })
   }
