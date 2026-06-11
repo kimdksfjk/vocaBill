@@ -24,14 +24,20 @@ struct StatsPage {
     this.loadData()
   }
 
-  private loadData(): void {
+  onPageShow(): void {
+    this.reloadStats()
+  }
+
+  private async reloadStats(): Promise<void> {
+    const data = await WordService.getStudyStats()
+    this.stats = data
+  }
+
+  private async loadData(): Promise<void> {
     this.isLoading = true
-    WordService.getStudyStats().then((data: StudyStats) => {
-      this.stats = data
-      this.isLoading = false
-    }).catch(() => {
-      this.isLoading = false
-    })
+    const data = await WordService.getStudyStats()
+    this.stats = data
+    this.isLoading = false
   }
 
   build() {

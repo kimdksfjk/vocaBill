@@ -24,14 +24,23 @@ struct HomePage {
     this.loadData()
   }
 
-  private loadData(): void {
+  onPageShow(): void {
+    // 每次从其他页面返回时重新拉取最新数据
+    this.reloadStats()
+  }
+
+  /** 重新拉取数据（轻量，不显示 loading） */
+  private async reloadStats(): Promise<void> {
+    const data = await WordService.getStudyStats()
+    this.stats = data
+  }
+
+  /** 首次加载，显示 loading */
+  private async loadData(): Promise<void> {
     this.isLoading = true
-    WordService.getStudyStats().then((data: StudyStats) => {
-      this.stats = data
-      this.isLoading = false
-    }).catch(() => {
-      this.isLoading = false
-    })
+    const data = await WordService.getStudyStats()
+    this.stats = data
+    this.isLoading = false
   }
 
   build() {
@@ -113,16 +122,11 @@ struct HomePage {
   @Builder
   StatsCard() {
     Row() {
-      // 今日已学
-      this.StatItem(this.stats.todayCount.toString(), '今日已学')
-      // 分割线
+      this.StatItem(this.fmtStat(this.stats.todayCount), '今日已学')
       this.StatDivider()
-      // 累计学习
-      this.StatItem(this.stats.totalCount.toString(), '累计学习')
-      // 分割线
+      this.StatItem(this.fmtStat(this.stats.totalCount), '累计学习')
       this.StatDivider()
-      // 正确率
-      this.StatItem(`${this.stats.correctRate}%`, '正确率')
+      this.StatItem(this.stats.correctRate >= 0 ? `${this.stats.correctRate}%` : '--', '正确率')
     }
     .width('100%')
     .padding({ top: SpacingConst.LG, bottom: SpacingConst.LG })
@@ -135,6 +139,14 @@ struct HomePage {
     })
     .justifyContent(FlexAlign.SpaceEvenly)
     .margin({ top: SpacingConst.XL })
+  }
+
+  /** 格式化统计数值，-1 表示加载失败 */
+  private fmtStat(value: number): string {
+    if (value < 0) {
+      return '--'
+    }
+    return value.toString()
   }
 
   @Builder
@@ -182,7 +194,7 @@ struct HomePage {
       .width('100%')
 
       ProgressBar({
-        current: this.stats.todayCount,
+        current: this.stats.todayCount >= 0 ? this.stats.todayCount : 0,
         total: this.stats.todayGoal,
         showText: true
       }).margin({ top: SpacingConst.MD })

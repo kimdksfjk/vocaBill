@@ -17,25 +17,38 @@ struct SettingsPage {
     this.loadSettings()
   }
 
-  private loadSettings(): void {
+  onPageShow(): void {
+    this.reloadGoal()
+  }
+
+  private async reloadGoal(): Promise<void> {
+    const goal = await WordService.getDailyGoal()
+    this.dailyGoal = goal
+  }
+
+  private async loadSettings(): Promise<void> {
     this.isLoading = true
-    WordService.getDailyGoal().then((goal: number) => {
-      this.dailyGoal = goal
-      this.isLoading = false
-    }).catch(() => {
-      this.isLoading = false
-    })
+    const goal = await WordService.getDailyGoal()
+    this.dailyGoal = goal
+    this.isLoading = false
   }
 
-  private onGoalChanged(value: number): void {
+  private async onGoalChanged(value: number): Promise<void> {
     this.dailyGoal = value
-    WordService.setDailyGoal(value)
+    const ok = await WordService.setDailyGoal(value)
+    if (!ok) {
+      // 写 DB 失败，回退到旧值
+      const saved = await WordService.getDailyGoal()
+      this.dailyGoal = saved
+    }
   }
 
-  private onResetData(): void {
-    WordService.resetAllData().then(() => {
+  private async onResetData(): Promise<void> {
+    const ok = await WordService.resetAllData()
+    if (ok) {
       this.showResetDialog = false
-    })
+      this.reloadGoal()
+    }
   }
 
   build() {

@@ -76,9 +76,8 @@ struct ReviewPage {
     const nextIndex = this.currentIndex + 1
 
     if (nextIndex >= this.wordList.length) {
-      // 全部学完
+      // 全部学完 — 不在这里保存，留给 goHome() 统一保存
       this.isFinished = true
-      this.saveResults()
       return
     }
 
@@ -90,15 +89,17 @@ struct ReviewPage {
     }, DefaultConst.AUTO_NEXT_DELAY)
   }
 
-  /** 保存学习结果 */
-  private saveResults(): void {
+  /** 保存学习结果（返回 Promise，调用方必须 await） */
+  private async saveResults(): Promise<void> {
     if (this.knownRecords.length > 0) {
-      WordService.recordBatchResults(this.knownRecords)
+      await WordService.recordBatchResults(this.knownRecords)
+      this.knownRecords = []  // 保存后清空，避免重复写入
     }
   }
 
-  /** 返回首页 */
-  private goHome(): void {
+  /** 返回首页（会先等待保存完成） */
+  private async goHome(): Promise<void> {
+    await this.saveResults()
     RouterUtil.back()
   }
 
@@ -181,8 +182,7 @@ struct ReviewPage {
         .fontSize(FontSizeConst.TITLE)
         .fontColor(ColorConst.TEXT_SECONDARY)
         .onClick(() => {
-          this.saveResults()
-          RouterUtil.back()
+          this.goHome()
         })
 
       Blank()
