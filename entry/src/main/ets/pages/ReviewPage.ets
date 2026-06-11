@@ -1,4 +1,4 @@
-import { ColorConst, DefaultConst, FontSizeConst, RadiusConst, SpacingConst } from '../common/constants/CommonConstants'
+import { ColorConst, DefaultConst, FontSizeConst, RadiusConst, RouteConst, SpacingConst } from '../common/constants/CommonConstants'
 import { Word, StudyRecord } from '../models/Word'
 import { WordService } from '../services/WordService'
 import { RouterUtil } from '../common/router/RouterUtil'
@@ -101,10 +101,10 @@ struct ReviewPage {
     }
   }
 
-  /** 返回首页（会先等待保存完成） */
+  /** 返回首页（会先等待保存完成，使用 replaceUrl 销毁旧页面强制刷新） */
   private async goHome(): Promise<void> {
     await this.saveResults()
-    RouterUtil.back()
+    RouterUtil.replace(RouteConst.HOME)
   }
 
   build() {
@@ -307,7 +307,7 @@ struct ReviewPage {
         .padding({ left: SpacingConst.XXL, right: SpacingConst.XXL })
         .margin({ top: SpacingConst.XXL })
         .onClick(() => {
-          RouterUtil.back()
+          RouterUtil.replace(RouteConst.HOME)
         })
     }
     .width('100%')

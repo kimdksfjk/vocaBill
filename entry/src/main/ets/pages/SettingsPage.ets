@@ -17,13 +17,13 @@ struct SettingsPage {
     this.loadSettings()
   }
 
-  onPageShow(): void {
-    this.reloadGoal()
-  }
-
-  private async reloadGoal(): Promise<void> {
-    const goal = await WordService.getDailyGoal()
-    this.dailyGoal = goal
+  async onPageShow(): Promise<void> {
+    try {
+      const goal = await WordService.getDailyGoal()
+      this.dailyGoal = goal
+    } catch (err) {
+      // 失败时保留现有数据
+    }
   }
 
   private async loadSettings(): Promise<void> {
@@ -47,7 +47,8 @@ struct SettingsPage {
     const ok = await WordService.resetAllData()
     if (ok) {
       this.showResetDialog = false
-      this.reloadGoal()
+      const goal = await WordService.getDailyGoal()
+      this.dailyGoal = goal
     }
   }
 

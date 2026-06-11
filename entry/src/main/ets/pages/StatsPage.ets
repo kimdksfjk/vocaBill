@@ -25,15 +25,15 @@ struct StatsPage {
     this.loadData()
   }
 
-  onPageShow(): void {
-    this.reloadStats()
-  }
-
-  private async reloadStats(): Promise<void> {
-    const data = await WordService.getStudyStats()
-    this.stats = data
-    const words = await WordService.getTodayStudiedWords()
-    this.studiedWords = words
+  async onPageShow(): Promise<void> {
+    try {
+      const data = await WordService.getStudyStats()
+      this.stats = data
+      const words = await WordService.getTodayStudiedWords()
+      this.studiedWords = words
+    } catch (err) {
+      // 失败时保留现有数据
+    }
   }
 
   private async loadData(): Promise<void> {

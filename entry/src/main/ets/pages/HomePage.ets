@@ -24,15 +24,14 @@ struct HomePage {
     this.loadData()
   }
 
-  onPageShow(): void {
+  async onPageShow(): Promise<void> {
     // 每次从其他页面返回时重新拉取最新数据
-    this.reloadStats()
-  }
-
-  /** 重新拉取数据（轻量，不显示 loading） */
-  private async reloadStats(): Promise<void> {
-    const data = await WordService.getStudyStats()
-    this.stats = data
+    try {
+      const data = await WordService.getStudyStats()
+      this.stats = data
+    } catch (err) {
+      // 失败时保留现有数据不变
+    }
   }
 
   /** 首次加载，显示 loading */
