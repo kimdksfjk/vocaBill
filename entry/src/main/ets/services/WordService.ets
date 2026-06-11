@@ -1,5 +1,5 @@
 import { relationalStore } from '@kit.ArkData';
-import { Word, StudyStats, StudyRecord, StudiedWordItem, NewWord, FamiliarityDistData, DayStats } from '../models/Word';
+import { Word, WordWithState, StudyStats, StudyRecord, StudiedWordItem, FamiliarityDistData, DayStats } from '../models/Word';
 import { DatabaseManager } from './database/DatabaseManager';
 import { WordRepository } from './database/WordRepository';
 import { ReviewRepository, NewReviewRecord } from './database/ReviewRepository';
@@ -7,17 +7,8 @@ import { SettingsRepository } from './database/SettingsRepository';
 import { Scheduler } from './scheduler/Scheduler';
 import { getTodayStart, formatDate } from '../utils/TimeUtil';
 import { WordSeeder, WordBank } from './WordSeeder';
+import { UserService } from './UserService';
 
-/**
- * 数据服务 — 连接 UI 与数据库层
- *
- * 词库调度模型（仿 Anki / 墨墨背单词）：
- *   首次启动 → preloadFullBank() 将词库 JSON 全量写入 DB
- *   每日学习 → getTodayWords() 构建当日优先队列：
- *     1. 到期复习词（nextReviewTime 已到且今天没学过）
- *     2. 全新词（familiarity=0, nextReviewTime=0 且今天没学过）
- *   学习完成 → recordBatchResults() 持久化 SRS 调度结果
- */
 export class WordService {
   private static wordRepo: WordRepository = new WordRepository();
   private static reviewRepo: ReviewRepository = new ReviewRepository();
@@ -25,79 +16,67 @@ export class WordService {
   private static scheduler: Scheduler = new Scheduler();
   private static bankReady: boolean = false;
 
+  /** 获取当前用户 ID（调用方需保证已登录） */
+  private static async getUserId(): Promise<number> {
+    const id = await UserService.getCurrentUserId();
+    if (id === null) {
+      throw new Error('用户未登录');
+    }
+    return id;
+  }
+
   // ==================== 词库预加载 ====================
 
-  /** 确保当前词库已全量预加载到 DB */
   static async preloadFullBank(): Promise<void> {
-    if (WordService.bankReady) {
-      return;
-    }
+    if (WordService.bankReady) return;
     const count = await WordService.wordRepo.getWordCount();
     if (count > 0) {
       WordService.bankReady = true;
       return;
     }
-
     const context = DatabaseManager.getInstance().getContext();
-    if (!context) {
-      return;
-    }
-
+    if (!context) return;
     const bank = await WordService.getWordBank();
     const words = await WordSeeder.loadAllWords(context, bank);
     if (words.length > 0) {
-      // 批量插入（每批 200 条，避免单批过大）
       const BATCH = 200;
       for (let i = 0; i < words.length; i += BATCH) {
-        const slice = words.slice(i, i + BATCH);
-        await WordService.wordRepo.batchInsert(slice);
+        await WordService.wordRepo.batchInsert(words.slice(i, i + BATCH));
       }
-      console.info(`[WordService] 词库预加载完成: ${words.length} 个单词`);
-    } else {
-      console.error('[WordService] 词库预加载失败：没有加载到任何单词');
     }
     WordService.bankReady = true;
   }
 
   // ==================== 每日学习队列 ====================
 
-  /**
-   * 获取今日待学单词
-   * 优先队列：到期复习词在前，新词在后
-   */
-  static async getTodayWords(): Promise<Word[]> {
-    // 确保词库已加载
+  static async getTodayWords(): Promise<WordWithState[]> {
     await WordService.preloadFullBank();
-
+    const userId = await WordService.getUserId();
     const todayStart = getTodayStart();
-    const todayIds = await WordService.reviewRepo.getTodayWordIdList(todayStart);
-    const allWords = await WordService.wordRepo.getAllWords();
+    const todayIds = await WordService.reviewRepo.getTodayWordIdList(userId, todayStart);
+    const allWords = await WordService.wordRepo.getAllWordsWithState(userId);
     const now = Date.now();
 
-    // 总词库为空？
-    if (allWords.length === 0) {
-      return [];
-    }
+    if (allWords.length === 0) return [];
 
-    // 1. 到期复习词：nextReviewTime > 0 且已到时间，今天还没学过
-    const dueReview = allWords.filter((w: Word) => {
+    // 1. 到期复习词
+    const dueReview = allWords.filter((w: WordWithState) => {
       return w.nextReviewTime > 0 && w.nextReviewTime <= now && todayIds.indexOf(w.id) === -1;
     });
 
     // 2. 全新未学词
-    const newWords = allWords.filter((w: Word) => {
+    const newWords = allWords.filter((w: WordWithState) => {
       return w.nextReviewTime === 0 && todayIds.indexOf(w.id) === -1;
     });
 
-    // 优先返回复习词 + 新词，上限为每日目标
-    const dailyGoal = await WordService.getDailyGoal();
-    const result: Word[] = [];
-    result.push(...dueReview);
-    const remaining = dailyGoal - result.length;
+    // 每组 10 个，优先复习
+    const GROUP_SIZE = 10;
+    const result: WordWithState[] = [];
+    result.push(...dueReview.slice(0, GROUP_SIZE));
+    const remaining = GROUP_SIZE - result.length;
     if (remaining > 0) {
       result.push(...newWords.slice(0, remaining));
     }
-
     return result;
   }
 
@@ -107,52 +86,66 @@ export class WordService {
   }
 
   static async getTodayStudiedWords(): Promise<StudiedWordItem[]> {
+    const userId = await WordService.getUserId();
     const todayStart = getTodayStart();
-    const knownMap = await WordService.reviewRepo.getTodayWordKnownMap(todayStart);
-    const allWords = await WordService.wordRepo.getAllWords();
+    const knownMap = await WordService.reviewRepo.getTodayWordKnownMap(userId, todayStart);
     const result: StudiedWordItem[] = [];
-    knownMap.forEach((known: boolean, wordId: number) => {
-      const word = allWords.find((w: Word) => w.id === wordId);
-      if (word) {
-        result.push({
-          id: word.id,
-          word: word.word,
-          meaning: word.meaning,
-          known: known
-        });
-      }
+    const entries: Array<[number, boolean]> = [];
+    knownMap.forEach((value: boolean, key: number) => {
+      entries.push([key, value]);
     });
+    for (let i = 0; i < entries.length; i++) {
+      const wordId = entries[i][0];
+      const known = entries[i][1];
+      const word = await WordService.wordRepo.getWordById(wordId);
+      if (word) {
+        result.push({ id: word.id, word: word.word, meaning: word.meaning, known: known });
+      }
+    }
     return result;
   }
 
   // ==================== 学习记录 ====================
 
   static async recordBatchResults(records: StudyRecord[]): Promise<boolean> {
-    if (records.length === 0) {
-      return true;
-    }
+    if (records.length === 0) return true;
+    const userId = await WordService.getUserId();
     try {
-      for (const record of records) {
-        const reviewRecord: NewReviewRecord = {
-          wordId: record.wordId,
-          isKnown: record.known,
-          reviewTime: record.timestamp
+      // 收集所有记录，批量插入复习记录
+      const reviewRecords: NewReviewRecord[] = [];
+      for (let ri = 0; ri < records.length; ri++) {
+        const r = records[ri];
+        const rec: NewReviewRecord = {
+          userId: userId,
+          wordId: r.wordId,
+          isKnown: r.known,
+          reviewTime: r.timestamp
         };
-        await WordService.reviewRepo.insert(reviewRecord);
-
-        const word = await WordService.wordRepo.getWordById(record.wordId);
-        if (word) {
-          if (record.known) {
-            const result = WordService.scheduler.handleKnown(word.familiarity);
-            await WordService.wordRepo.updateFamiliarity(record.wordId, result.newFamiliarity, result.nextReviewTime);
-          } else {
-            const result = WordService.scheduler.handleUnknown();
-            await WordService.wordRepo.updateFamiliarity(record.wordId, result.newFamiliarity, result.nextReviewTime);
-          }
-        }
+        reviewRecords.push(rec);
       }
+      await WordService.reviewRepo.batchInsert(reviewRecords);
 
-      await WordService.updateTodayProgress();
+      // 逐个更新词状态
+      // 先获取所有词的状态（避免逐条查询）
+      const allStates = await WordService.wordRepo.getAllWordsWithState(userId);
+      for (const record of records) {
+        const state = allStates.find((w: WordWithState) => w.id === record.wordId);
+        const currentFam = state ? state.familiarity : 0;
+
+        let newFam: number;
+        let nextTime: number;
+        if (record.known) {
+          const schedResult = WordService.scheduler.handleKnown(currentFam);
+          newFam = schedResult.newFamiliarity;
+          nextTime = schedResult.nextReviewTime;
+        } else {
+          const schedResult = WordService.scheduler.handleUnknown();
+          newFam = schedResult.newFamiliarity;
+          nextTime = schedResult.nextReviewTime;
+        }
+        await WordService.wordRepo.upsertWordState(userId, record.wordId, newFam, nextTime);
+      }
+      await WordService.updateTodayProgress(userId);
       return true;
     } catch (err) {
       console.error(`[WordService] recordBatchResults 失败: ${JSON.stringify(err)}`);
@@ -160,18 +153,16 @@ export class WordService {
     }
   }
 
-  /** 同步 user_progress 表 */
-  private static async updateTodayProgress(): Promise<void> {
+  private static async updateTodayProgress(userId: number): Promise<void> {
     const store = DatabaseManager.getInstance().getStore();
-    if (!store) {
-      return;
-    }
+    if (!store) return;
     try {
       const todayStr = formatDate(Date.now());
       const todayStart = getTodayStart();
-      const stats = await WordService.reviewRepo.getTodayUniqueStats(todayStart);
+      const stats = await WordService.reviewRepo.getTodayUniqueStats(userId, todayStart);
 
       const predicates = new relationalStore.RdbPredicates('user_progress');
+      predicates.equalTo('userId', userId);
       predicates.equalTo('date', todayStr);
       const valueBucket: relationalStore.ValuesBucket = {
         'studiedCount': stats.studiedCount,
@@ -179,14 +170,13 @@ export class WordService {
       };
       const rows = await store.update(valueBucket, predicates);
       if (rows === 0) {
-        const goal = await WordService.getDailyGoal();
-        const insertBucket: relationalStore.ValuesBucket = {
+        await store.insert('user_progress', {
+          'userId': userId,
           'date': todayStr,
           'studiedCount': stats.studiedCount,
-          'targetCount': goal,
+          'targetCount': 20,
           'accuracy': stats.studiedCount > 0 ? stats.correctCount / stats.studiedCount : 0
-        };
-        await store.insert('user_progress', insertBucket);
+        });
       }
     } catch (err) {
       console.error(`[WordService] updateTodayProgress 失败: ${JSON.stringify(err)}`);
@@ -197,22 +187,22 @@ export class WordService {
 
   static async getStudyStats(): Promise<StudyStats> {
     try {
+      const userId = await WordService.getUserId();
       const todayStart = getTodayStart();
-      const todayStats = await WordService.reviewRepo.getTodayUniqueStats(todayStart);
-      const totalCount = await WordService.wordRepo.getStudiedWordCount();
+      const todayStats = await WordService.reviewRepo.getTodayUniqueStats(userId, todayStart);
+      const totalCount = await WordService.wordRepo.getStudiedWordCount(userId);
       const dailyGoal = await WordService.getDailyGoal();
 
       let masteredCount = 0;
       try {
-        const allWords = await WordService.wordRepo.getAllWords();
-        masteredCount = allWords.filter((w: Word) => w.familiarity >= 3).length;
+        const allWords = await WordService.wordRepo.getAllWordsWithState(userId);
+        masteredCount = allWords.filter((w: WordWithState) => w.familiarity >= 3).length;
       } catch (_) {
         masteredCount = 0;
       }
 
       const correctRate = todayStats.studiedCount > 0
-        ? Math.round((todayStats.correctCount / todayStats.studiedCount) * 100)
-        : 0;
+        ? Math.round((todayStats.correctCount / todayStats.studiedCount) * 100) : 0;
 
       return {
         todayCount: todayStats.studiedCount,
@@ -222,38 +212,34 @@ export class WordService {
         masteredCount: masteredCount
       };
     } catch (err) {
-      return {
-        todayCount: -1,
-        totalCount: -1,
-        todayGoal: 20,
-        correctRate: 0,
-        masteredCount: 0
-      };
+      return { todayCount: -1, totalCount: -1, todayGoal: 20, correctRate: 0, masteredCount: 0 };
     }
   }
 
   static async getFamiliarityDist(): Promise<FamiliarityDistData> {
     try {
-      return await WordService.wordRepo.getFamiliarityDist();
+      const userId = await WordService.getUserId();
+      return await WordService.wordRepo.getFamiliarityDist(userId);
     } catch (err) {
       return { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 };
     }
   }
 
   static async getWeeklyStats(): Promise<DayStats[]> {
-    return await WordService.reviewRepo.getWeeklyStats();
+    const userId = await WordService.getUserId();
+    return await WordService.reviewRepo.getWeeklyStats(userId);
   }
 
   // ==================== 设置 ====================
 
   static async getDailyGoal(): Promise<number> {
     const store = DatabaseManager.getInstance().getStore();
-    if (!store) {
-      return 20;
-    }
+    if (!store) return 20;
     try {
+      const userId = await WordService.getUserId();
       const todayStr = formatDate(Date.now());
       const predicates = new relationalStore.RdbPredicates('user_progress');
+      predicates.equalTo('userId', userId);
       predicates.equalTo('date', todayStr);
       const resultSet = await store.query(predicates, ['targetCount']);
       let goal = 20;
@@ -269,23 +255,16 @@ export class WordService {
 
   static async setDailyGoal(goal: number): Promise<boolean> {
     const store = DatabaseManager.getInstance().getStore();
-    if (!store) {
-      return false;
-    }
+    if (!store) return false;
     try {
+      const userId = await WordService.getUserId();
       const todayStr = formatDate(Date.now());
       const predicates = new relationalStore.RdbPredicates('user_progress');
+      predicates.equalTo('userId', userId);
       predicates.equalTo('date', todayStr);
-      const valueBucket: relationalStore.ValuesBucket = { 'targetCount': goal };
-      const rows = await store.update(valueBucket, predicates);
+      const rows = await store.update({ 'targetCount': goal }, predicates);
       if (rows === 0) {
-        const bucket: relationalStore.ValuesBucket = {
-          'date': todayStr,
-          'studiedCount': 0,
-          'targetCount': goal,
-          'accuracy': 0
-        };
-        await store.insert('user_progress', bucket);
+        await store.insert('user_progress', { 'userId': userId, 'date': todayStr, 'studiedCount': 0, 'targetCount': goal, 'accuracy': 0 });
       }
       return true;
     } catch (err) {
@@ -313,27 +292,23 @@ export class WordService {
 
   static async getWordBank(): Promise<WordBank> {
     const val = await WordService.settingsRepo.get('word_bank', 'cet4_cet6');
-    if (val === 'cet4' || val === 'cet6' || val === 'cet4_cet6') {
-      return val as WordBank;
-    }
+    if (val === 'cet4' || val === 'cet6' || val === 'cet4_cet6') return val as WordBank;
     return 'cet4_cet6';
   }
 
-  /** 切换词库：清空旧数据 + 全量预加载新词库 */
   static async setWordBank(bank: WordBank): Promise<void> {
     const store = DatabaseManager.getInstance().getStore();
     if (store) {
       try {
         await store.executeSql('DELETE FROM review_record');
+        await store.executeSql('DELETE FROM user_word_state');
         await store.executeSql('DELETE FROM user_progress');
         await store.executeSql('DELETE FROM words');
       } catch (err) {
         console.error(`[WordService] 清空词库失败: ${JSON.stringify(err)}`);
       }
     }
-    // 持久化偏好
     await WordService.settingsRepo.set('word_bank', bank);
-    // 重新预加载
     WordService.bankReady = false;
     await WordService.preloadFullBank();
   }
@@ -342,15 +317,12 @@ export class WordService {
 
   static async resetAllData(): Promise<boolean> {
     const store = DatabaseManager.getInstance().getStore();
-    if (!store) {
-      return false;
-    }
+    if (!store) return false;
     try {
       await store.executeSql('DELETE FROM review_record');
+      await store.executeSql('DELETE FROM user_word_state');
       await store.executeSql('DELETE FROM user_progress');
-      await store.executeSql('DELETE FROM words');
-      WordService.bankReady = false;
-      await WordService.preloadFullBank();
+      WordService.bankReady = true;  // words 表不动，只清用户进度
       return true;
     } catch (err) {
       return false;

@@ -10,19 +10,29 @@ const STORE_CONFIG: relationalStore.StoreConfig = {
 };
 
 /** 当前数据库 schema 版本 */
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
-/** 建表SQL — 单词表（v2：含音标、例句、复习时间） */
+/** 建表SQL — 单词表（v3：仅词条元数据，不含学习状态） */
 const CREATE_TABLE_WORDS = `
   CREATE TABLE IF NOT EXISTS words (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     word TEXT NOT NULL,
     meaning TEXT NOT NULL,
-    familiarity INTEGER DEFAULT 0,
-    nextReviewTime INTEGER DEFAULT 0,
     usPhonetic TEXT DEFAULT '',
     ukPhonetic TEXT DEFAULT '',
     exampleSentence TEXT DEFAULT ''
+  )
+`;
+
+/** 建表SQL — 用户词状态表（每个用户对每个词的独立学习状态） */
+const CREATE_TABLE_USER_WORD_STATE = `
+  CREATE TABLE IF NOT EXISTS user_word_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL,
+    wordId INTEGER NOT NULL,
+    familiarity INTEGER DEFAULT 0,
+    nextReviewTime INTEGER DEFAULT 0,
+    UNIQUE(userId, wordId)
   )
 `;
 
@@ -30,6 +40,7 @@ const CREATE_TABLE_WORDS = `
 const CREATE_TABLE_REVIEW_RECORD = `
   CREATE TABLE IF NOT EXISTS review_record (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL,
     wordId INTEGER NOT NULL,
     isKnown INTEGER NOT NULL,
     reviewTime INTEGER NOT NULL
@@ -40,10 +51,12 @@ const CREATE_TABLE_REVIEW_RECORD = `
 const CREATE_TABLE_USER_PROGRESS = `
   CREATE TABLE IF NOT EXISTS user_progress (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL UNIQUE,
+    userId INTEGER NOT NULL,
+    date TEXT NOT NULL,
     studiedCount INTEGER DEFAULT 0,
     targetCount INTEGER DEFAULT 20,
-    accuracy REAL DEFAULT 0
+    accuracy REAL DEFAULT 0,
+    UNIQUE(userId, date)
   )
 `;
 
@@ -132,15 +145,13 @@ export class DatabaseManager {
       return;
     }
     console.info(`[DatabaseManager] schema 迁移: v${oldVersion} → v${DB_VERSION}`);
-    // v1 → v2：words 表新增了 nextReviewTime / usPhonetic / ukPhonetic / exampleSentence 列
-    // 新增了 settings、users、current_user、schema_version 表
-    // 最安全的方式：删除旧 words/review_record/user_progress 表，后续由 seeder 重新填充
-    if (oldVersion < 2) {
+    if (oldVersion < 3) {
       try {
         await this.rdbStore.executeSql('DROP TABLE IF EXISTS words');
+        await this.rdbStore.executeSql('DROP TABLE IF EXISTS user_word_state');
         await this.rdbStore.executeSql('DROP TABLE IF EXISTS review_record');
         await this.rdbStore.executeSql('DROP TABLE IF EXISTS user_progress');
-        console.info('[DatabaseManager] 已清理 v1 旧表，将重新创建');
+        console.info('[DatabaseManager] 已清理旧表，将重新创建 v3');
       } catch (err) {
         const error = err as BusinessError;
         console.warn(`[DatabaseManager] 清理旧表失败: ${error.message}`);
@@ -154,6 +165,7 @@ export class DatabaseManager {
       return;
     }
     await this.rdbStore.executeSql(CREATE_TABLE_WORDS);
+    await this.rdbStore.executeSql(CREATE_TABLE_USER_WORD_STATE);
     await this.rdbStore.executeSql(CREATE_TABLE_REVIEW_RECORD);
     await this.rdbStore.executeSql(CREATE_TABLE_USER_PROGRESS);
     await this.rdbStore.executeSql(CREATE_TABLE_USERS);

@@ -66,5 +66,5 @@ export class RouteConst {
 /** 默认设置 */
 export class DefaultConst {
   static readonly DAILY_GOAL = 20
-  static readonly AUTO_NEXT_DELAY = 1500  // 选择后自动下一词的延迟(ms)
+  static readonly AUTO_NEXT_DELAY = 10  // 选择后自动下一词的延迟(ms)
 }

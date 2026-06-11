@@ -1,5 +1,5 @@
 import { ColorConst, FontSizeConst, RadiusConst, SpacingConst } from '../common/constants/CommonConstants'
-import { Word } from '../models/Word'
+import { WordWithState } from '../models/Word'
 
 /**
  * 单词卡片组件 - 显示单词与释义
@@ -7,7 +7,7 @@ import { Word } from '../models/Word'
  */
 @Component
 export struct WordCard {
-  @Prop word: Word = {
+  @Prop word: WordWithState = {
     id: 0, word: '', meaning: '', familiarity: 0,
     nextReviewTime: 0, usPhonetic: '', ukPhonetic: '', exampleSentence: ''
   }

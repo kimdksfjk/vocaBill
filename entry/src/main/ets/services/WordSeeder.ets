@@ -5,17 +5,7 @@ import { uint8ArrayToString } from '../utils/JsonUtil';
 const CET4_FILES = ['words/CET4_1.json', 'words/CET4_2.json', 'words/CET4_3.json'];
 const CET6_FILES = ['words/CET6_1.json', 'words/CET6_2.json', 'words/CET6_3.json'];
 
-/** 词库类型 */
 export type WordBank = 'cet4' | 'cet6' | 'cet4_cet6';
-
-interface CetJson {
-  word: string;
-  us: string;
-  uk: string;
-  translations: CetTranslation[];
-  phrases: CetPhrase[];
-  sentences: CetSentence[];
-}
 
 interface CetTranslation {
   translation: string;
@@ -32,16 +22,17 @@ interface CetSentence {
   translation: string;
 }
 
-/**
- * 单词播种器
- * 核心原则：
- * - loadAllWords() 一次性加载全部词库到内存
- * - 调用方负责将这批数据写入 DB
- * - 切换词库时只需重新调用即可
- */
+interface CetJson {
+  word: string;
+  us: string;
+  uk: string;
+  translations: CetTranslation[];
+  phrases: CetPhrase[];
+  sentences: CetSentence[];
+}
+
 export class WordSeeder {
 
-  /** 一次性加载指定词库的全部单词 */
   static async loadAllWords(context: common.Context, bank: WordBank): Promise<NewWord[]> {
     const files = WordSeeder.getFiles(bank);
     const all: NewWord[] = [];
@@ -62,23 +53,22 @@ export class WordSeeder {
             meaning = parts.join('; ');
           }
 
+          const exampleSentence = w.sentences && w.sentences.length > 0
+            ? `${w.sentences[0].sentence}\n${w.sentences[0].translation}` : '';
+
           all.push({
             word: w.word,
             meaning: meaning,
-            familiarity: 0,
-            nextReviewTime: 0,
             usPhonetic: w.us || '',
             ukPhonetic: w.uk || '',
-            exampleSentence: WordSeeder.buildExample(w)
+            exampleSentence: exampleSentence
           });
         }
-        console.info(`[WordSeeder] 加载完成: ${file}, ${words.length} 个单词`);
       } catch (err) {
         console.error(`[WordSeeder] 加载失败 ${file}: ${JSON.stringify(err)}`);
       }
     }
 
-    console.info(`[WordSeeder] 加载完成: 共 ${all.length} 个单词 (bank: ${bank})`);
     return all;
   }
 
@@ -92,13 +82,5 @@ export class WordSeeder {
       default:
         return [...CET4_FILES, ...CET6_FILES];
     }
-  }
-
-  private static buildExample(w: CetJson): string {
-    if (w.sentences && w.sentences.length > 0) {
-      const s = w.sentences[0];
-      return `${s.sentence}\n${s.translation}`;
-    }
-    return '';
   }
 }

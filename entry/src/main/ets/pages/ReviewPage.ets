@@ -1,5 +1,5 @@
 import { ColorConst, DefaultConst, FontSizeConst, RadiusConst, RouteConst, SpacingConst } from '../common/constants/CommonConstants'
-import { Word, StudyRecord } from '../models/Word'
+import { WordWithState, StudyRecord } from '../models/Word'
 import { WordService } from '../services/WordService'
 import { RouterUtil } from '../common/router/RouterUtil'
 import { LoadingView } from '../components/LoadingView'
@@ -15,14 +15,14 @@ import promptAction from '@ohos.promptAction'
 @Component
 struct ReviewPage {
   @State isLoading: boolean = true
-  @State wordList: Word[] = []
+  @State wordList: WordWithState[] = []
   @State currentIndex: number = 0
   @State showMeaning: boolean = false
   @State isFinished: boolean = false
   @State isEmpty: boolean = false
   @State correctCount: number = 0
   @State skippedCount: number = 0
-  @State currentWord: Word = {
+  @State currentWord: WordWithState = {
     id: 0,
     word: '',
     meaning: '',
@@ -54,7 +54,7 @@ struct ReviewPage {
     this.isLoading = true
     WordService.preloadFullBank().then(() => {
       return WordService.getTodayWords()
-    }).then((words: Word[]) => {
+    }).then((words: WordWithState[]) => {
       this.wordList = words
       if (words.length > 0) {
         this.currentWord = words[0]
