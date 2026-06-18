@@ -85,7 +85,8 @@ struct ReviewPage {
     this.knownRecords.push({
       wordId: this.currentWord.id,
       known: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      mode: 'Casual'
     })
     this.correctCount++
     this.nextWord()
@@ -95,7 +96,8 @@ struct ReviewPage {
     this.knownRecords.push({
       wordId: this.currentWord.id,
       known: false,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      mode: 'Casual'
     })
     this.nextWord()
   }

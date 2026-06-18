@@ -118,7 +118,8 @@ export struct DeepLearningPage {
     this.knownRecords.push({
       wordId: this.currentWord.id,
       known: known,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      mode: 'Deep'
     })
     if (known) {
       this.correctCount++

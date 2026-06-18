@@ -154,12 +154,18 @@ export class WordService {
         let nextTime: number;
         if (record.known) {
           const schedResult = WordService.scheduler.handleKnown(currentFam);
-          newFam = schedResult.newFamiliarity;
           nextTime = schedResult.nextReviewTime;
         } else {
           const schedResult = WordService.scheduler.handleUnknown();
-          newFam = schedResult.newFamiliarity;
           nextTime = schedResult.nextReviewTime;
+        }
+
+        if (record.mode === 'Deep') {
+          newFam = record.known ? 2 : 1;
+        } else if (record.mode === 'Casual') {
+          newFam = record.known ? 3 : 0;
+        } else {
+          newFam = record.known ? WordService.scheduler.handleKnown(currentFam).newFamiliarity : WordService.scheduler.handleUnknown().newFamiliarity;
         }
         await WordService.wordRepo.upsertWordState(userId, record.wordId, newFam, nextTime);
       }
@@ -239,7 +245,7 @@ export class WordService {
       const userId = await WordService.getUserId();
       return await WordService.wordRepo.getFamiliarityDist(userId);
     } catch (err) {
-      return { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 };
+      return { unlearned: 0, fuzzy: 0, known: 0, trueVocab: 0 };
     }
   }
 

@@ -173,7 +173,7 @@ export class WordRepository {
   async getFamiliarityDist(userId: number): Promise<FamiliarityDistData> {
     const store = DatabaseManager.getInstance().getStore();
     if (store === null) {
-      return { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 };
+      return { unlearned: 0, fuzzy: 0, known: 0, trueVocab: 0 };
     }
     try {
       // 已学习过的词 → 从 user_word_state 统计
@@ -181,21 +181,21 @@ export class WordRepository {
                    WHERE userId = ? AND familiarity > 0
                    GROUP BY familiarity`;
       const resultSet = await store.querySql(sql, [userId.toString()]);
-      let unknown = 0, fuzzy = 0, known = 0;
+      let fuzzy = 0, known = 0, trueVocab = 0;
       while (resultSet.goToNextRow()) {
         const fam = resultSet.getLong(resultSet.getColumnIndex('familiarity'));
         const cnt = resultSet.getLong(resultSet.getColumnIndex('cnt'));
-        if (fam === 1) unknown = cnt;
-        else if (fam === 2) fuzzy = cnt;
-        else if (fam >= 3) known = cnt;
+        if (fam === 1) fuzzy += cnt;
+        else if (fam === 2) known += cnt;
+        else if (fam === 3) trueVocab += cnt;
       }
       resultSet.close();
       // 未学习 = 总词数 - 已学习词数
       const totalCount = await this.getWordCount();
-      const unlearned = totalCount - unknown - fuzzy - known;
-      return { unlearned: Math.max(0, unlearned), unknown, fuzzy, known };
+      const unlearned = totalCount - fuzzy - known - trueVocab;
+      return { unlearned: Math.max(0, unlearned), fuzzy, known, trueVocab };
     } catch (err) {
-      return { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 };
+      return { unlearned: 0, fuzzy: 0, known: 0, trueVocab: 0 };
     }
   }
 

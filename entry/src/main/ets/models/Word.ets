@@ -49,6 +49,7 @@ export interface StudyRecord {
   wordId: number
   known: boolean
   timestamp: number
+  mode?: 'Casual' | 'Deep'
 }
 
 /**
@@ -66,9 +67,9 @@ export interface StudiedWordItem {
  */
 export interface FamiliarityDistData {
   unlearned: number
-  unknown: number
   fuzzy: number
   known: number
+  trueVocab: number
 }
 
 /**

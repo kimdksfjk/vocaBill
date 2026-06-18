@@ -19,7 +19,7 @@ struct StatsPage {
     masteredCount: 0
   }
   @State studiedWords: StudiedWordItem[] = []
-  @State familiarityDist: FamiliarityDistData = { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 }
+  @State familiarityDist: FamiliarityDistData = { unlearned: 0, fuzzy: 0, known: 0, trueVocab: 0 }
   @State weeklyStats: DayStats[] = []
 
   aboutToAppear(): void {
@@ -279,7 +279,7 @@ struct StatsPage {
   }
 
   private getFamTotal(): number {
-    return this.familiarityDist.unlearned + this.familiarityDist.unknown
+    return this.familiarityDist.unlearned + this.familiarityDist.trueVocab
       + this.familiarityDist.fuzzy + this.familiarityDist.known;
   }
 
@@ -300,9 +300,9 @@ struct StatsPage {
       }
 
       this.FamRow('未学习', this.familiarityDist.unlearned, this.getFamTotal(), ColorConst.TEXT_HINT)
-      this.FamRow('不认识', this.familiarityDist.unknown, this.getFamTotal(), ColorConst.DANGER)
       this.FamRow('模糊', this.familiarityDist.fuzzy, this.getFamTotal(), ColorConst.WARNING)
       this.FamRow('已掌握', this.familiarityDist.known, this.getFamTotal(), ColorConst.PRIMARY)
+      this.FamRow('真实词汇量', this.familiarityDist.trueVocab, this.getFamTotal(), '#9C27B0') // Purple
     }
     .width('100%')
     .padding(SpacingConst.LG)
