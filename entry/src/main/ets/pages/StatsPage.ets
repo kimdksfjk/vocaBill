@@ -77,8 +77,6 @@ struct StatsPage {
           // 今日概览卡片
           this.TodayOverviewCard()
 
-          // 环形进度区
-          this.RingProgressSection()
 
           // 详细统计卡片
           this.DetailStatsCard()
@@ -172,47 +170,6 @@ struct StatsPage {
   }
 
   @Builder
-  RingProgressSection() {
-    Column() {
-      Text('学习正确率')
-        .fontSize(FontSizeConst.TITLE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(ColorConst.TEXT_PRIMARY)
-        .margin({ bottom: SpacingConst.MD })
-
-      Stack() {
-        Progress({
-          value: this.stats.correctRate,
-          total: 100,
-          type: ProgressType.Ring
-        })
-          .width(140)
-          .height(140)
-          .style({ strokeWidth: 10 })
-          .color(ColorConst.PRIMARY)
-
-        Column() {
-          Text(`${this.stats.correctRate}%`)
-            .fontSize(FontSizeConst.LOGO)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(ColorConst.PRIMARY)
-
-          Text('正确率')
-            .fontSize(FontSizeConst.CAPTION)
-            .fontColor(ColorConst.TEXT_SECONDARY)
-        }
-        .alignItems(HorizontalAlign.Center)
-      }
-    }
-    .width('100%')
-    .padding({ top: SpacingConst.LG, bottom: SpacingConst.LG })
-    .backgroundColor(ColorConst.BG_CARD)
-    .borderRadius(RadiusConst.LG)
-    .alignItems(HorizontalAlign.Center)
-    .margin({ top: SpacingConst.MD })
-  }
-
-  @Builder
   DetailStatsCard() {
     Column() {
       Text('学习详情')
@@ -228,8 +185,6 @@ struct StatsPage {
       this.DetailRow('累计学习', `${this.stats.totalCount} 词`)
       this.DetailDivider()
       this.DetailRow('已掌握', `${this.stats.masteredCount} 词`)
-      this.DetailDivider()
-      this.DetailRow('正确率', `${this.stats.correctRate}%`)
     }
     .width('100%')
     .padding(SpacingConst.LG)

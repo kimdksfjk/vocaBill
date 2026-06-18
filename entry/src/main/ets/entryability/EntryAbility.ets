@@ -24,6 +24,18 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
+    // 初始化持久化存储
+    PersistentStorage.persistProp('ReviewSession_WordList', []);
+    PersistentStorage.persistProp('ReviewSession_CurrentIndex', 0);
+    PersistentStorage.persistProp('ReviewSession_KnownRecords', []);
+    
+    PersistentStorage.persistProp('DeepSession_WordList', []);
+    PersistentStorage.persistProp('DeepSession_CurrentIndex', 0);
+    PersistentStorage.persistProp('DeepSession_Phase', 1);
+    PersistentStorage.persistProp('DeepSession_Phase1Queue', []);
+    PersistentStorage.persistProp('DeepSession_Options', []);
+    PersistentStorage.persistProp('DeepSession_KnownRecords', []);
+
     // 必须先等数据库初始化完成，再加载页面，否则页面查询时 DB 还未就绪
     DatabaseManager.getInstance().init(this.context).then(() => {
       hilog.info(DOMAIN, 'testTag', '数据库初始化成功');

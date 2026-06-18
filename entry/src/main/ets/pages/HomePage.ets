@@ -72,8 +72,8 @@ struct HomePage {
         // 学习进度卡片
         this.ProgressCard()
 
-        // 开始学习按钮
-        this.StartButton()
+        // 学习入口按钮组
+        this.ActionButtons()
 
         // 底部导航入口
         this.NavEntries()
@@ -128,8 +128,6 @@ struct HomePage {
       this.StatItem(this.fmtStat(this.stats.todayCount), '今日已学')
       this.StatDivider()
       this.StatItem(this.fmtStat(this.stats.totalCount), '累计学习')
-      this.StatDivider()
-      this.StatItem(this.stats.correctRate >= 0 ? `${this.stats.correctRate}%` : '--', '正确率')
     }
     .width('100%')
     .padding({ top: SpacingConst.LG, bottom: SpacingConst.LG })
@@ -217,35 +215,62 @@ struct HomePage {
     .margin({ top: SpacingConst.MD })
   }
 
-  /** 开始学习按钮 */
+  /** 学习入口按钮组 */
   @Builder
-  StartButton() {
-    Button() {
-      Row() {
-        Text('开始学习')
-          .fontSize(FontSizeConst.HEADLINE)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Color.White)
-
-        Text(' →')
-          .fontSize(FontSizeConst.TITLE)
-          .fontColor(Color.White)
+  ActionButtons() {
+    Row() {
+      // 随手背入口
+      Button() {
+        Column() {
+          Text('随手背')
+            .fontSize(FontSizeConst.TITLE)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+        }
+        .justifyContent(FlexAlign.Center)
       }
-      .justifyContent(FlexAlign.Center)
+      .layoutWeight(1)
+      .height(64)
+      .backgroundColor('#81C784') // 柔和的绿色
+      .borderRadius(RadiusConst.XL)
+      .shadow({
+        radius: 8,
+        color: '#3381C784',
+        offsetY: 4
+      })
+      .margin({ right: SpacingConst.MD })
+      .onClick(() => {
+        RouterUtil.toReview()
+      })
+
+      // 深度背词入口
+      Button() {
+        Row() {
+          Text('深度背词')
+            .fontSize(FontSizeConst.HEADLINE)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+          Text(' →')
+            .fontSize(FontSizeConst.TITLE)
+            .fontColor(Color.White)
+        }
+        .justifyContent(FlexAlign.Center)
+      }
+      .layoutWeight(2)
+      .height(64)
+      .backgroundColor(ColorConst.PRIMARY)
+      .borderRadius(RadiusConst.XL)
+      .shadow({
+        radius: 12,
+        color: '#334CAF50',
+        offsetY: 6
+      })
+      .onClick(() => {
+        RouterUtil.push('pages/DeepLearningPage')
+      })
     }
     .width('100%')
-    .height(56)
-    .backgroundColor(ColorConst.PRIMARY)
-    .borderRadius(RadiusConst.XL)
-    .shadow({
-      radius: 12,
-      color: '#334CAF50',
-      offsetY: 6
-    })
     .margin({ top: SpacingConst.XXL })
-    .onClick(() => {
-      RouterUtil.toReview()
-    })
   }
 
   /** 底部导航入口 */

@@ -198,4 +198,44 @@ export class WordRepository {
       return { unlearned: 0, unknown: 0, fuzzy: 0, known: 0 };
     }
   }
+
+  /** 获取与指定词性匹配的随机释义 */
+  async getRandomMeaningsByPos(pos: string, excludeWordId: number, limitCount: number): Promise<string[]> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) {
+      return [];
+    }
+    try {
+      const sql = `SELECT meaning FROM ${TABLE_WORDS} WHERE meaning LIKE ? AND id != ? ORDER BY RANDOM() LIMIT ?`;
+      const resultSet = await store.querySql(sql, [pos + '%', excludeWordId.toString(), limitCount.toString()]);
+      const meanings: string[] = [];
+      while (resultSet.goToNextRow()) {
+        meanings.push(resultSet.getString(resultSet.getColumnIndex('meaning')));
+      }
+      resultSet.close();
+      return meanings;
+    } catch (err) {
+      return [];
+    }
+  }
+
+  /** 获取任意随机释义（用于同词性不足时的兜底） */
+  async getRandomMeanings(excludeWordId: number, limitCount: number): Promise<string[]> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) {
+      return [];
+    }
+    try {
+      const sql = `SELECT meaning FROM ${TABLE_WORDS} WHERE id != ? ORDER BY RANDOM() LIMIT ?`;
+      const resultSet = await store.querySql(sql, [excludeWordId.toString(), limitCount.toString()]);
+      const meanings: string[] = [];
+      while (resultSet.goToNextRow()) {
+        meanings.push(resultSet.getString(resultSet.getColumnIndex('meaning')));
+      }
+      resultSet.close();
+      return meanings;
+    } catch (err) {
+      return [];
+    }
+  }
 }

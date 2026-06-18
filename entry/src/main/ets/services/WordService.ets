@@ -85,6 +85,24 @@ export class WordService {
     return word ?? undefined;
   }
 
+  static async generateOptionsForWord(word: WordWithState): Promise<string[]> {
+    const match = word.meaning.match(/^([a-z]+)\./);
+    const pos = match ? match[1] + '.' : '';
+    let incorrectOptions: string[] = [];
+    if (pos) {
+      incorrectOptions = await WordService.wordRepo.getRandomMeaningsByPos(pos, word.id, 3);
+    }
+    
+    if (incorrectOptions.length < 3) {
+      const extraNeeded = 3 - incorrectOptions.length;
+      const extraOptions = await WordService.wordRepo.getRandomMeanings(word.id, extraNeeded);
+      incorrectOptions.push(...extraOptions);
+    }
+
+    const options = [word.meaning, ...incorrectOptions];
+    return options.sort(() => Math.random() - 0.5);
+  }
+
   static async getTodayStudiedWords(): Promise<StudiedWordItem[]> {
     const userId = await WordService.getUserId();
     const todayStart = getTodayStart();

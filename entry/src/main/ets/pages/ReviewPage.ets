@@ -14,9 +14,11 @@ import promptAction from '@ohos.promptAction'
 @Entry
 @Component
 struct ReviewPage {
+  @StorageLink('ReviewSession_WordList') wordList: WordWithState[] = []
+  @StorageLink('ReviewSession_CurrentIndex') currentIndex: number = 0
+  @StorageLink('ReviewSession_KnownRecords') knownRecords: StudyRecord[] = []
+  
   @State isLoading: boolean = true
-  @State wordList: WordWithState[] = []
-  @State currentIndex: number = 0
   @State showMeaning: boolean = false
   @State isFinished: boolean = false
   @State isEmpty: boolean = false
@@ -32,15 +34,20 @@ struct ReviewPage {
     ukPhonetic: '',
     exampleSentence: ''
   }
-  @State knownRecords: StudyRecord[] = []
   private nextTimerId: number = -1
 
   aboutToAppear(): void {
-    this.loadWords()
+    if (this.wordList && this.wordList.length > 0 && this.currentIndex < this.wordList.length) {
+      this.currentWord = this.wordList[this.currentIndex]
+      this.isLoading = false
+    } else {
+      this.loadWords()
+    }
   }
 
   aboutToDisappear(): void {
     this.clearNextTimer()
+    this.saveResults() // Save intermediate progress when leaving
   }
 
   private clearNextTimer(): void {
@@ -137,6 +144,10 @@ struct ReviewPage {
 
   private async goHome(): Promise<void> {
     await this.saveResults()
+    if (this.isFinished) {
+      this.wordList = []
+      this.currentIndex = 0
+    }
     RouterUtil.replace(RouteConst.HOME)
   }
 

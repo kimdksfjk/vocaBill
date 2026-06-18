@@ -6,6 +6,7 @@
     "pages/StatsPage",
     "pages/SettingsPage",
     "pages/LoginPage",
-    "pages/RegisterPage"
+    "pages/RegisterPage",
+    "pages/DeepLearningPage"
   ]
 }
