@@ -75,6 +75,13 @@ export class WordService {
     result.push(...dueReview.slice(0, GROUP_SIZE));
     const remaining = GROUP_SIZE - result.length;
     if (remaining > 0) {
+      // 随机打乱全新未学词
+      for (let i = newWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = newWords[i];
+        newWords[i] = newWords[j];
+        newWords[j] = temp;
+      }
       result.push(...newWords.slice(0, remaining));
     }
     return result;

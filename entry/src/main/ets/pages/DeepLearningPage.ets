@@ -141,6 +141,17 @@ export struct DeepLearningPage {
     }
   }
 
+  private async refreshSession(): Promise<void> {
+    this.wordList = []
+    this.currentIndex = 0
+    this.knownRecords = []
+    this.phase1Queue = []
+    this.options = []
+    this.isFinished = false
+    this.isEmpty = false
+    await this.loadWords()
+  }
+
   private async goHome(): Promise<void> {
     await this.saveResults()
     if (this.isFinished) {
@@ -187,9 +198,12 @@ export struct DeepLearningPage {
         .fontSize(FontSizeConst.BODY)
         .fontColor(ColorConst.TEXT_SECONDARY)
       Blank()
-      Text('✕')
-        .fontSize(FontSizeConst.TITLE)
-        .fontColor(Color.Transparent)
+      Text('换一组')
+        .fontSize(FontSizeConst.BODY)
+        .fontColor(ColorConst.PRIMARY)
+        .onClick(() => {
+          this.refreshSession()
+        })
     }
     .width('100%')
     .height(48)
