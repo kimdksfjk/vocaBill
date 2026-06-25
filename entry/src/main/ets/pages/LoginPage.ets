@@ -32,19 +32,12 @@ struct LoginPage {
         Row() {
           TextInput({ text: this.password, placeholder: '请输入密码' })
             .fontSize(FontSizeConst.BODY)
-            .type(this.showPassword ? InputType.Normal : InputType.Password)
+            .type(InputType.Password)
             .backgroundColor(Color.Transparent)
             .layoutWeight(1)
             .height(48)
             .onChange((value: string) => {
               this.password = value
-            })
-
-          Text(this.showPassword ? '🙈' : '👁')
-            .fontSize(18)
-            .padding(SpacingConst.SM)
-            .onClick(() => {
-              this.showPassword = !this.showPassword
             })
         }
         .width('100%')

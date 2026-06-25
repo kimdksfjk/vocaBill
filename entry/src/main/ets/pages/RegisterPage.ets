@@ -48,19 +48,12 @@ struct RegisterPage {
             Row() {
               TextInput({ text: this.password, placeholder: '请输入密码（至少6位）' })
                 .fontSize(FontSizeConst.BODY)
-                .type(this.showPassword ? InputType.Normal : InputType.Password)
+                .type(InputType.Password)
                 .backgroundColor(Color.Transparent)
                 .layoutWeight(1)
                 .height(48)
                 .onChange((value: string) => {
                   this.password = value
-                })
-
-              Text(this.showPassword ? '🙈' : '👁')
-                .fontSize(18)
-                .padding(SpacingConst.SM)
-                .onClick(() => {
-                  this.showPassword = !this.showPassword
                 })
             }
             .width('100%')
@@ -72,19 +65,12 @@ struct RegisterPage {
             Row() {
               TextInput({ text: this.confirmPassword, placeholder: '请再次输入密码' })
                 .fontSize(FontSizeConst.BODY)
-                .type(this.showConfirmPassword ? InputType.Normal : InputType.Password)
+                .type(InputType.Password)
                 .backgroundColor(Color.Transparent)
                 .layoutWeight(1)
                 .height(48)
                 .onChange((value: string) => {
                   this.confirmPassword = value
-                })
-
-              Text(this.showConfirmPassword ? '🙈' : '👁')
-                .fontSize(18)
-                .padding(SpacingConst.SM)
-                .onClick(() => {
-                  this.showConfirmPassword = !this.showConfirmPassword
                 })
             }
             .width('100%')
