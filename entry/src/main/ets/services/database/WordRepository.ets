@@ -5,6 +5,7 @@ import { DatabaseManager } from './DatabaseManager';
 
 const TABLE_WORDS = 'words';
 const TABLE_USER_WORD_STATE = 'user_word_state';
+const TABLE_FAVORITE_WORDS = 'favorite_words';
 
 /**
  * 单词数据仓库
@@ -236,6 +237,86 @@ export class WordRepository {
       return meanings;
     } catch (err) {
       return [];
+    }
+  }
+
+  /** 添加收藏 */
+  async addFavorite(userId: number, wordId: number): Promise<void> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) return;
+    try {
+      await store.insert(TABLE_FAVORITE_WORDS, {
+        'userId': userId,
+        'wordId': wordId,
+        'createdAt': Date.now()
+      });
+    } catch (err) {
+      const error = err as BusinessError;
+      throw new Error(`添加收藏失败: ${error.message}`);
+    }
+  }
+
+  /** 移除收藏 */
+  async removeFavorite(userId: number, wordId: number): Promise<void> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) return;
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_FAVORITE_WORDS);
+      predicates.equalTo('userId', userId);
+      predicates.equalTo('wordId', wordId);
+      await store.delete(predicates);
+    } catch (err) {
+      const error = err as BusinessError;
+      throw new Error(`移除收藏失败: ${error.message}`);
+    }
+  }
+
+  /** 检查是否已收藏 */
+  async isFavorite(userId: number, wordId: number): Promise<boolean> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) return false;
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_FAVORITE_WORDS);
+      predicates.equalTo('userId', userId);
+      predicates.equalTo('wordId', wordId);
+      const resultSet = await store.query(predicates, ['id']);
+      const isFav = resultSet.rowCount > 0;
+      resultSet.close();
+      return isFav;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /** 获取收藏列表 */
+  async getFavoriteWords(userId: number): Promise<Word[]> {
+    const store = DatabaseManager.getInstance().getStore();
+    if (store === null) return [];
+    try {
+      const sql = `
+        SELECT w.id, w.word, w.meaning, w.usPhonetic, w.ukPhonetic, w.exampleSentence
+        FROM words w
+        INNER JOIN favorite_words f ON w.id = f.wordId
+        WHERE f.userId = ?
+        ORDER BY f.createdAt DESC
+      `;
+      const resultSet = await store.querySql(sql, [userId.toString()]);
+      const words: Word[] = [];
+      while (resultSet.goToNextRow()) {
+        words.push({
+          id: resultSet.getLong(resultSet.getColumnIndex('id')),
+          word: resultSet.getString(resultSet.getColumnIndex('word')),
+          meaning: resultSet.getString(resultSet.getColumnIndex('meaning')),
+          usPhonetic: resultSet.getString(resultSet.getColumnIndex('usPhonetic')),
+          ukPhonetic: resultSet.getString(resultSet.getColumnIndex('ukPhonetic')),
+          exampleSentence: resultSet.getString(resultSet.getColumnIndex('exampleSentence'))
+        });
+      }
+      resultSet.close();
+      return words;
+    } catch (err) {
+      const error = err as BusinessError;
+      throw new Error(`查询收藏列表失败: ${error.message}`);
     }
   }
 }

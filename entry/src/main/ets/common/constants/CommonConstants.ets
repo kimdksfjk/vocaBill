@@ -61,6 +61,7 @@ export class RouteConst {
   static readonly SETTINGS = 'pages/SettingsPage'
   static readonly LOGIN = 'pages/LoginPage'
   static readonly REGISTER = 'pages/RegisterPage'
+  static readonly FAVORITES = 'pages/FavoriteWordsPage'
 }
 
 /** 默认设置 */

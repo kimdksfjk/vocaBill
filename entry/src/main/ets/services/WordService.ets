@@ -346,10 +346,47 @@ export class WordService {
       await store.executeSql('DELETE FROM review_record');
       await store.executeSql('DELETE FROM user_word_state');
       await store.executeSql('DELETE FROM user_progress');
+      await store.executeSql('DELETE FROM favorite_words');
       WordService.bankReady = true;  // words 表不动，只清用户进度
       return true;
     } catch (err) {
       return false;
+    }
+  }
+
+  // ==================== 收藏词本 ====================
+
+  static async toggleFavorite(wordId: number, isFavorite: boolean): Promise<boolean> {
+    try {
+      const userId = await WordService.getUserId();
+      if (isFavorite) {
+        await WordService.wordRepo.addFavorite(userId, wordId);
+      } else {
+        await WordService.wordRepo.removeFavorite(userId, wordId);
+      }
+      return true;
+    } catch (err) {
+      console.error(`[WordService] toggleFavorite 失败: ${JSON.stringify(err)}`);
+      return false;
+    }
+  }
+
+  static async isFavorite(wordId: number): Promise<boolean> {
+    try {
+      const userId = await WordService.getUserId();
+      return await WordService.wordRepo.isFavorite(userId, wordId);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  static async getFavoriteWords(): Promise<Word[]> {
+    try {
+      const userId = await WordService.getUserId();
+      return await WordService.wordRepo.getFavoriteWords(userId);
+    } catch (err) {
+      console.error(`[WordService] getFavoriteWords 失败: ${JSON.stringify(err)}`);
+      return [];
     }
   }
 }

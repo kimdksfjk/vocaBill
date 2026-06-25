@@ -23,6 +23,7 @@ export struct DeepLearningPage {
   @State isFinished: boolean = false
   @State isEmpty: boolean = false
   @State skippedCount: number = 0
+  @State isFavorite: boolean = false
   
   @State currentWord: WordWithState = {
     id: 0, word: '', meaning: '', familiarity: 0, nextReviewTime: 0,
@@ -39,8 +40,15 @@ export struct DeepLearningPage {
       if (this.phase === 1 && this.options.length === 0) {
         this.prepareOptions()
       }
+      this.updateFavoriteStatus()
     } else {
       this.loadWords()
+    }
+  }
+
+  private async updateFavoriteStatus(): Promise<void> {
+    if (this.currentWord && this.currentWord.id > 0) {
+      this.isFavorite = await WordService.isFavorite(this.currentWord.id)
     }
   }
 
@@ -66,6 +74,7 @@ export struct DeepLearningPage {
         this.correctCount = 0
         this.knownRecords = []
         await this.prepareOptions()
+        await this.updateFavoriteStatus()
       } else {
         this.isEmpty = true
       }
@@ -111,6 +120,7 @@ export struct DeepLearningPage {
       this.currentIndex = this.phase1Queue[0]
       this.currentWord = this.wordList[this.currentIndex]
       await this.prepareOptions()
+      await this.updateFavoriteStatus()
     }
   }
 
@@ -131,6 +141,7 @@ export struct DeepLearningPage {
     } else {
       this.currentIndex = nextIndex
       this.currentWord = this.wordList[nextIndex]
+      await this.updateFavoriteStatus()
     }
   }
 
@@ -187,9 +198,17 @@ export struct DeepLearningPage {
         .fontSize(FontSizeConst.BODY)
         .fontColor(ColorConst.TEXT_SECONDARY)
       Blank()
-      Text('✕')
+      Text(this.isFavorite ? '★' : '☆')
         .fontSize(FontSizeConst.TITLE)
-        .fontColor(Color.Transparent)
+        .fontColor(this.isFavorite ? ColorConst.WARNING : ColorConst.TEXT_SECONDARY)
+        .onClick(async () => {
+          const newVal = !this.isFavorite
+          const ok = await WordService.toggleFavorite(this.currentWord.id, newVal)
+          if (ok) {
+            this.isFavorite = newVal
+            promptAction.showToast({ message: newVal ? '已收藏' : '已取消收藏', duration: 1000 })
+          }
+        })
     }
     .width('100%')
     .height(48)

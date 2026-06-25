@@ -10,7 +10,7 @@ const STORE_CONFIG: relationalStore.StoreConfig = {
 };
 
 /** 当前数据库 schema 版本 */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 /** 建表SQL — 单词表（v3：仅词条元数据，不含学习状态） */
 const CREATE_TABLE_WORDS = `
@@ -21,6 +21,17 @@ const CREATE_TABLE_WORDS = `
     usPhonetic TEXT DEFAULT '',
     ukPhonetic TEXT DEFAULT '',
     exampleSentence TEXT DEFAULT ''
+  )
+`;
+
+/** 建表SQL — 收藏的单词表 */
+const CREATE_TABLE_FAVORITE_WORDS = `
+  CREATE TABLE IF NOT EXISTS favorite_words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL,
+    wordId INTEGER NOT NULL,
+    createdAt INTEGER NOT NULL,
+    UNIQUE(userId, wordId)
   )
 `;
 
@@ -139,7 +150,7 @@ export class DatabaseManager {
     }
   }
 
-  /** 迁移逻辑：旧版本表结构不兼容则重建 */
+  /** 迁移逻辑：旧版本表结构不兼容则重建或升级 */
   private async migrate(oldVersion: number): Promise<void> {
     if (this.rdbStore === null) {
       return;
@@ -157,6 +168,15 @@ export class DatabaseManager {
         console.warn(`[DatabaseManager] 清理旧表失败: ${error.message}`);
       }
     }
+    if (oldVersion < 4) {
+      try {
+        await this.rdbStore.executeSql(CREATE_TABLE_FAVORITE_WORDS);
+        console.info('[DatabaseManager] 升级到 v4：新增 favorite_words 表');
+      } catch (err) {
+        const error = err as BusinessError;
+        console.warn(`[DatabaseManager] 新增 favorite_words 表失败: ${error.message}`);
+      }
+    }
   }
 
   /** 确保所有基础表存在 */
@@ -172,6 +192,7 @@ export class DatabaseManager {
     await this.rdbStore.executeSql(CREATE_TABLE_CURRENT_USER);
     await this.rdbStore.executeSql(CREATE_TABLE_SETTINGS);
     await this.rdbStore.executeSql(CREATE_TABLE_SCHEMA);
+    await this.rdbStore.executeSql(CREATE_TABLE_FAVORITE_WORDS);
     console.info('[DatabaseManager] 数据表创建完成');
   }
 

@@ -293,6 +293,22 @@ struct HomePage {
         RouterUtil.toStats()
       })
 
+      // 喜欢的词本入口
+      Column() {
+        Text('⭐')
+          .fontSize(24)
+        Text('喜欢的词本')
+          .fontSize(FontSizeConst.CAPTION)
+          .fontColor(ColorConst.TEXT_SECONDARY)
+          .margin({ top: SpacingConst.XS })
+      }
+      .alignItems(HorizontalAlign.Center)
+      .padding({ left: SpacingConst.LG, right: SpacingConst.LG, top: SpacingConst.SM, bottom: SpacingConst.SM })
+      .borderRadius(RadiusConst.MD)
+      .onClick(() => {
+        RouterUtil.push(RouteConst.FAVORITES)
+      })
+
       // 设置入口
       Column() {
         Text('⚙')
