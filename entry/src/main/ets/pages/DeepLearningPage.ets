@@ -5,6 +5,7 @@ import { RouterUtil } from '../common/router/RouterUtil'
 import { LoadingView } from '../components/LoadingView'
 import { ProgressBar } from '../components/ProgressBar'
 import promptAction from '@ohos.promptAction'
+import { AudioPlayerUtil } from '../utils/AudioPlayerUtil'
 
 @Entry
 @Component
@@ -24,6 +25,7 @@ export struct DeepLearningPage {
   @State isEmpty: boolean = false
   @State skippedCount: number = 0
   @State isFavorite: boolean = false
+  @State pronunciationPref: string = 'british'
   
   @State currentWord: WordWithState = {
     id: 0, word: '', meaning: '', familiarity: 0, nextReviewTime: 0,
@@ -73,6 +75,7 @@ export struct DeepLearningPage {
         this.phase = 1
         this.correctCount = 0
         this.knownRecords = []
+        this.pronunciationPref = await WordService.getPronunciationPref()
         await this.prepareOptions()
         await this.updateFavoriteStatus()
       } else {
@@ -243,6 +246,25 @@ export struct DeepLearningPage {
               .fontSize(FontSizeConst.BODY)
               .fontColor(ColorConst.TEXT_SECONDARY)
           }
+          
+          Text('🔊')
+            .fontSize(FontSizeConst.TITLE)
+            .margin({ left: SpacingConst.MD })
+            .stateStyles({
+              pressed: {
+                .opacity(0.5)
+              },
+              normal: {
+                .opacity(1.0)
+              }
+            })
+            .onClick(() => {
+              promptAction.showToast({ 
+                message: this.pronunciationPref === 'american' ? '🗣️ 播放美式发音' : '🗣️ 播放英式发音', 
+                duration: 1000 
+              })
+              AudioPlayerUtil.playWord(this.currentWord.word, this.pronunciationPref)
+            })
         }
         .margin({ top: SpacingConst.MD })
       }

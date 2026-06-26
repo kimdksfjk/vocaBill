@@ -84,6 +84,15 @@ export class WordService {
       }
       result.push(...newWords.slice(0, remaining));
     }
+    
+    // 最后将混合了复习词和新词的队列彻底打乱
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = result[i];
+      result[i] = result[j];
+      result[j] = temp;
+    }
+    
     return result;
   }
 

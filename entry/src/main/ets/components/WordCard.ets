@@ -1,5 +1,8 @@
 import { ColorConst, FontSizeConst, RadiusConst, SpacingConst } from '../common/constants/CommonConstants'
 import { WordWithState } from '../models/Word'
+import { AudioPlayerUtil } from '../utils/AudioPlayerUtil'
+import { WordService } from '../services/WordService'
+import promptAction from '@ohos.promptAction'
 
 /**
  * 单词卡片组件 - 显示单词与释义
@@ -13,7 +16,14 @@ export struct WordCard {
   }
   @Link showMeaning: boolean
   @Prop cardIndex: number = 0        // 当前卡片索引
+  @State pronunciationPref: string = 'british'
   onToggleMeaning?: () => void
+
+  aboutToAppear() {
+    WordService.getPronunciationPref().then((pref) => {
+      this.pronunciationPref = pref;
+    });
+  }
 
   build() {
     Column() {
@@ -31,13 +41,34 @@ export struct WordCard {
         .textAlign(TextAlign.Center)
         .margin({ bottom: SpacingConst.SM })
 
-      // 音标（优先显示用户偏好的音标）
-      if (this.word.usPhonetic || this.word.ukPhonetic) {
-        Text(`/${this.word.ukPhonetic || this.word.usPhonetic}/`)
-          .fontSize(FontSizeConst.BODY)
-          .fontColor(ColorConst.TEXT_HINT)
-          .margin({ bottom: SpacingConst.MD })
+      // 音标（优先显示用户偏好的音标）和发音喇叭
+      Row() {
+        if (this.word.usPhonetic || this.word.ukPhonetic) {
+          Text(`/${this.word.ukPhonetic || this.word.usPhonetic}/`)
+            .fontSize(FontSizeConst.BODY)
+            .fontColor(ColorConst.TEXT_HINT)
+        }
+        Text('🔊')
+          .fontSize(FontSizeConst.TITLE)
+          .margin({ left: SpacingConst.MD })
+          .stateStyles({
+            pressed: {
+              .opacity(0.5)
+            },
+            normal: {
+              .opacity(1.0)
+            }
+          })
+          .onClick(() => {
+            promptAction.showToast({ 
+              message: this.pronunciationPref === 'american' ? '🗣️ 播放美式发音' : '🗣️ 播放英式发音', 
+              duration: 1000 
+            })
+            AudioPlayerUtil.playWord(this.word.word, this.pronunciationPref)
+          })
       }
+      .margin({ bottom: SpacingConst.MD })
+      .justifyContent(FlexAlign.Center)
 
       // 分隔线
       if (!this.showMeaning) {
