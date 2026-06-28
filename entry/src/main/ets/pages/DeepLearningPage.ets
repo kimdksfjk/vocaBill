@@ -48,6 +48,10 @@ export struct DeepLearningPage {
     }
   }
 
+  async onPageShow(): Promise<void> {
+    this.pronunciationPref = await WordService.getPronunciationPref()
+  }
+
   private async updateFavoriteStatus(): Promise<void> {
     if (this.currentWord && this.currentWord.id > 0) {
       this.isFavorite = await WordService.isFavorite(this.currentWord.id)
